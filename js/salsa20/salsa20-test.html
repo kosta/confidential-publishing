@@ -1,0 +1,44 @@
+<html>
+  <head>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="salsa20.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      function a8tos (/* array of 8bit number */ a) {
+        var s = "";
+        for(var i = 0; i < a.length; ++i)
+          s += String.fromCharCode(a[i]);
+        return s;
+      }
+
+      function run_test() {
+        var data = Base64.decode("G6qC0ZK+8q1BZL7f5McwOGeeXms4cG8KFQIw6XqWvQElmBe0A326FwZjN5Koa+WqqNBluvmUtVVlwX5Fjt2Mxwocz6K07pxit5lcYxAE6uSKXV/JojKB6yRF3NM0Ebeuuq/zv19MhwNil0TGGH0ULBVzwU9ez3j4zUPgaibHTgbgVLef1ZJ5Tr8PWnaGafpHVAGffe97dZzAVKbApo/H9NvXWf8Xsocu00qtgUJkOPM=");
+        var data2 = Base64.decode("6dDhjLbIYXqcTkBuPdO3pjnR5E//7yobt+ImgOJREMwtsgV3cRf9IMb2yOtYBczNOFIjymDfXUW7xvutib4leSUgTtbJEXYj0D6yvnuEKFYZmTUtH7aLFVfnm76o0pmK/Pl52Z3ASWCj5k2qFmmBdpU=");
+        var true_cipher2 = Base64.decode("uh8PMUtW2ve8R97Q+WTr/zchzkG/62VlzcBiDOuzjaRuCmGiHhkmBfC1iBaCBVpH8fFmGe1rm3ixcumMKUP+20NQrVQSmcoiCNKcrg6gu93m5AmF06RrjBTXIk3oq09QZiLiA7DpvUOvHikOZ3r0KPk=");
+        var key = a8tos([0xa3, 0x0b, 0x79, 0x16, 0xee, 0xcc, 0xf0, 0x2e, 
+                  0xa2, 0xbb, 0x5e, 0x80, 0x20, 0xd5, 0xa6, 0xa4, 
+                  0x1c, 0xad, 0x10, 0x61, 0x58, 0x93, 0x16, 0xb7, 
+                  0x02, 0x11, 0xa7, 0x34, 0xa3, 0xe8, 0x80, 0x1c]);
+        var iv = a8tos([0x58, 0x9e, 0x86, 0x41, 0x4f, 0x04, 0x97, 0xe2]);
+        var plain = salsa20.decrypt(data, key, iv);
+        document.write(plain);
+        document.write("<br>");
+        document.write(salsa20.decrypt(salsa20.encrypt("This test shows decrypt/encrypt is compatible to itself", key, iv), key, iv));
+        document.write("<br>");
+        document.write("The binary test says: " + (salsa20.encrypt(data2, key, iv) == true_cipher2) ? "passed" : "failed");
+        document.write("<br><br>");
+        document.write("speed test: <br>fetching document... ");
+        var s = fetch("usa");
+        document.write("done. <br>now encrypting and decrypting...");
+        var before = new Date();
+        var s2 = salsa20.decrypt(salsa20.encrypt(s, key, iv), key, iv);
+        var after = new Date();
+        document.write("time passed (ms):" + (after - before) + "<br>");
+        document.write("throughput: ~" + (798.77/(after - before)*1000).toFixed(2) + " kb/s<br>");
+        document.write("both strings identical: " + (s == s2) + "<br>");
+      }
+    </script>
+  </head>
+  <body onload="run_test()">
+  </body>
+</html>

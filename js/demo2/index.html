@@ -1,0 +1,621 @@
+<html>
+  <head>
+    <title>Kostas little demo 2</title>
+  </head>
+  <body onload="run_onload()">
+    <form name="login" onSubmit='run_login();return false;'>
+      <table>
+        <tr>
+          <td>login:</td>
+          <td>
+            <input name="user" type="text" value="alice@lastpageofthe.net" size=40 onblur="populate_user()">
+            <!-- you can ommit the @lastpageofthe.net part //-->
+          </td>
+        </tr>
+        <tr>
+          <td>longterm key name:</td>
+          <td><div id="longterm_key_name"></div></td>
+        </tr>
+        <tr>
+          <td valign=top>longterm key mnemonic:</td>
+          <td><div id="longterm_key_mnemonic"></div></td>
+        </tr>
+        <tr>
+          <td colspan=2>
+            <font color=red>
+              If the mnemonic is wrong, DO NOT enter your passphrase! Someone is trying to trick you and steal it!
+            </font>
+          </td>
+        </tr>
+        <tr>
+          <td>passkey:</td>
+          <td>
+            <select name="key" size=1>
+          </td>
+        </tr>
+        <tr>
+          <td>passphrase:</td>
+          <td><input name="passphrase" type="password" value="sh4dwsMvWhrLghtShldBi6671336" size=40 readonly></td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <input type="button" value="login" onClick="run_login();"><br>
+          </td>
+        </tr>
+      </table>
+    </form>
+    <div id="main">
+      <div id="head">
+      </div>
+      <div id="leftside" style="float: left; width: 22em; margin: 0; padding: 0; border: 1px dashed silver;">
+        <div id="leftside_signature_info"></div>
+        <div id="leftside_toolbar"></div>
+        <div id="leftside_content"></div>
+      </div>
+      <div id="rightside" style="margin-left: 22em; padding: 0 1em; border: 1px dashed silver; min-width: 16em;">
+        <div id="rightside_title"></div>
+        <div id="rightside_signature_info"></div>
+        <div id="rightside_toolbar"></div>
+        <div id="rightside_content"></div>
+      </div>
+    </div>
+    <div id="jsout" style="font-family: monospace; font-size: small; vertical-align: bottom; clear: both;">
+      Log:<br>
+    </div>
+  </body>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="../json2/json2.js" type="text/javascript"></script>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa-sign.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/prng4.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rng.js" type="text/javascript"></script>
+    <script src="../asn1/asn1.js" type="text/javascript"></script>
+    <script src="../gibberish-aes/gibberish-aes.js" type="text/javascript"></script>
+    <script src="../curve25519/curve25519.js" type="text/javascript"></script>
+    <script src="../salsa20/salsa20.js" type="text/javascript"></script>
+    <script src="../json/json_sans_eval.js" type="text/javascript"></script>
+    <script src="../jssha/sha.js" type="text/javascript"></script>
+    <script src="../cryptomnemonics/names.js" type="text/javascript"></script>
+    <script src="../cryptomnemonics/names-lib.js" type="text/javascript"></script>
+    <!-- enable the next line for firebug lite debugging -->
+    <!-- <script type='text/javascript' src='http://getfirebug.com/releases/lite/1.2/firebug-lite-compressed.js'></script> -->
+    <!--<script type="application/x-javascript" src="http://192.168.1.38:1840/ibug.js"></script>-->
+    <script src="lib.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      //todo: what about meta encrypted with keys we dont have yet?
+
+      var public_keys = {};
+      var newest_name;
+
+      function user_url(username) {
+        var idx = username.indexOf("@");
+        if (-1 == "idx")
+          return window.location.pathname + username + "/";
+        else
+          return window.location.pathname + username.substr(0,idx) + "/";
+      }
+
+      function populate_user() {
+        //todo: async!
+        var baseurl = user_url(document.login.user.value);
+        var passkey_src = fetch(baseurl + "passkeys");
+        var passkey_signature = fetch(baseurl + "passkeys.signature");
+        //var public_keys = {};
+        var newest_date = null;
+        var now = new Date().getTime();
+        var public_keys_meta = jsonParse(fetch(baseurl + "public-keys"), true);
+        for(var i in public_keys_meta) {
+          var key_meta = public_keys_meta[i];
+
+          //untransform if necessary
+          if (key_meta.signaturetrans)
+            key_meta.signature
+              = untransform_pair(key_meta.signature, key_meta.signaturetrans)[0];
+          if (key_meta.valuetrans)
+            key_meta.value = untransform_pair(key_meta.value, key_meta.valuetrans)[0];
+
+          if (key_meta.type.substr(0,4) != "key:") {
+            echo_append("populate_user(): ignoring non-key meta");
+            continue;
+          }
+          var key = make_key(key_meta, null, new CryptoContext());
+          if (!key.public) {
+            echo_append("populate_user(): ignoring non-public key");
+            continue;
+          }
+          if (now > key.validfrom && now < key.validto) {
+            //check signature
+            var plain = new Date(key.validfrom).toGMTString() + "|" +
+              new Date(key.validto).toGMTString() + "|" +
+              key_meta.value;
+            var verification = key.verify(plain, key_meta.signature);
+            if (!verification[0]) {
+              echo_append("populate_user(): ignoring un-verifiable key " + key.name);
+              continue;
+            }
+            public_keys[key.name] = key;
+            if (key.name.substr(0,8) == "longterm" && 
+              (!newest_date || newest_date < key.validto)) {
+              newest = key.validto;
+              newest_name = key.name;
+            }
+          } else
+            echo_append("populate_user(): ignoring out-of-date key");
+        }
+
+        var node = document.getElementById("longterm_key_name");
+        remove_all_node_children(node);
+        node.appendChild(document.createTextNode(newest_name));
+        node = document.getElementById("longterm_key_mnemonic");
+        remove_all_node_children(node);
+        var split = public_keys[newest_name].mnemonic.split("\n");
+        for(var i = 0; i < split.length; ++i) {
+          node.appendChild(document.createTextNode(split[i]));
+          if (i != split.length-1)
+            node.appendChild(document.createElement("br"));
+        }
+
+        var passkey_meta = jsonParse(passkey_src, true);
+        if (passkey_meta[0].type != "signature") {
+          alert("passkeys is not signed. sorry, this is a fatal error :(");
+          return;
+        }
+        var signedby = passkey_meta[0].signedby;
+        if (!(signedby in public_keys)) {
+          alert("passkeys is not signed by a valid longterm key. sorry, this is a fatal error :(");
+          return;
+        }
+        //untransform passkey signature
+        if (passkey_meta[0].urltrans)
+          passkey_signature = 
+            untransform_pair(passkey_signature, passkey_meta[0].urltrans)[0];
+        //verify signature
+        var verification = public_keys[signedby].verify(passkey_src, passkey_signature);
+        if (!verification[0]) {
+          alert("passkeys signature verification faild. sorry, this is a fatal error :(");
+          return;
+        }
+
+        //append html thingies
+        var select = document.login.key;
+        for(var i = 1; i < passkey_meta.length; ++i) {
+          if (passkey_meta[i].type != "passkey") {
+            echo_append("populate_user(): ignoring non-passkey meta");
+            continue;
+          }
+          var node = document.createElement("option");
+          node.setAttribute("value", JSON.stringify(passkey_meta[i]));
+          node.appendChild(document.createTextNode(passkey_meta[i].name));
+          select.appendChild(node);
+          echo_append(passkey_meta[i].name);
+        }
+
+        document.login.passphrase.removeAttribute("readonly");
+        
+        echo_append("done.");
+      }
+
+      function run_login() {
+        userinfo = new UserInfo(document.login.user.value, window.location.pathname);
+        //userinfo["private_key_name"] = document.login.key.value;
+
+//         var meta = { "name": document.login.key.value, 
+//           /* enc algorithm */ type: "key:AES-256",
+//           /* key */ "value": new jsSHA(userinfo.userid + ":" + document.login.passphrase.value).getHash("SHA-256", "BIN", 1000)
+//         };
+        var passkey_idx = document.login.key.selectedIndex;
+        var passkey_meta = jsonParse(document.login.key.options[passkey_idx].value);
+
+        var passkey = make_key({name: passkey_meta.name,
+            type: "key:" + passkey_meta.enc,
+            value: new jsSHA(userinfo.userid + ":" + document.login.passphrase.value).getHash(
+              passkey_meta.hash, "BIN", passkey_meta.iterations)}, 
+          null, new CryptoContext());
+        var passkey_url = new jsSHA("passkey-secrets:" +
+          passkey.key).getHash(passkey_meta.salt, "HEX");
+        var passkey_signature_url = new jsSHA("passkey-signature:" +
+          passkey.key).getHash(passkey_meta.salt, "HEX");
+
+        var passkey_folder = 
+          new Folder("passkeys", userinfo, userinfo.baseurl + passkey_url);
+//         passkey_folder.compact = [{name: "iv", size: 16}, 
+//           /*{name: "rev", size: 4}, {name: "sig", size: 256}, */
+//           {name: "content", size: "rest"}];
+        passkey_folder.urltrans = "base64|compact/" + passkey_meta.name;
+        passkey_folder.crypto_context.encrypted_by["passkey-main"] = true;
+        passkey_folder.crypto_context.signature.by = newest_name;
+        passkey_folder.crypto_context.signature.url = passkey_signature_url;
+        passkey_folder.allow_global_keys = true;
+
+        passkey_folder.fetch_and_parse();
+
+        logged_in();
+      };
+
+      function logged_in() {
+        document.login.parentNode.removeChild(document.login);
+        //document.getElementById("head").appendChild(document.createTextNode("You are successfully logged in as " + userinfo.username));
+        var private_key = userinfo.keys[userinfo.private_key_name];
+        echo_set("Logged in as: " + userinfo.userid, "head");
+//           + " with key " + userinfo.private_key_name, "head");
+//         if (private_key.hash)
+//           echo_append("key hash: " + straight_hex(private_key.hash), "head");
+//         else echo_append("TODO: calculate key hash");
+//         if (private_key.mnemonic) {
+//           echo_append("key mnemonic:", "head");
+//           var names = private_key.mnemonic.split("\n");
+//           for(var i = 0; i < names.length; ++i)
+//             echo_append(names[i], "head");
+//         } else
+           echo_append("TODO: calculate key hash/mnemonic.");
+
+        echo_append("Reading directory index...");
+        userinfo.make_root_folder(userinfo.baseurl);
+        show_app_pane(userinfo.filetree);
+      };
+
+      function apply_edited_content(namedpath) {
+        var content = userinfo.namedpaths[namedpath];
+        if (!content)
+          throw "apply_edited_content(): content not found: '" + namepath + "'";
+        var lock_url,
+          upload_message = [];
+        //todo: key other than 'master' 
+        var signing_key = userinfo.get_key("master");
+        if (content instanceof Folder) {
+          //add new content instead 
+          var folder = content;
+          //value will be set 2 lines later
+          var content = new Content({name: document.getElementById("content_edit_name").value, 
+            type: "content", "content-type": "text/plain" }, folder.crypto_context, folder)
+          if (folder.exists(content.name))
+            throw "apply_edited_content(): error: name already exists!";
+          folder.add_content(content);
+          lock_url = folder.get_url();
+          var folder_src = folder.to_meta();
+          upload_message.push({url: folder.get_url(), 
+            op: "replace", content: folder_src});
+          upload_message.push({url: folder.crypto_context.get_url(null, folder), 
+            op: "replace", content: Base64.encode(signing_key.sign(folder_src))});
+        } else
+          lock_url = content.get_url();
+        content.meta.value = document.getElementById("content_edit_area").value;
+        upload_message.push({url: content.get_url(), 
+          op: "replace", 
+          content: content.crypto_context.get_b64_enc_value(content.meta.value, content.folder)});
+        if (content.crypto_context.signature.by) {
+          var signature = signing_key.sign(content.meta.value);
+          content.meta.signature = signature;
+          echo_append("apply_edited_content() signature url:" + content.crypto_context.get_url(content.meta, content.folder));
+          upload_message.push({url: content.crypto_context.get_url(content.meta, content.folder), op: "replace", content: Base64.encode(signature) });
+        }
+        upload(lock_url, upload_message);
+        show_content(content.namedpath);
+      }
+
+      function show_content(namedpath) {
+        //todo: ROOT add function to get folder from pathname, and pathname from folder
+        echo_append("showing content: " + namedpath);
+        var content = userinfo.namedpaths[namedpath];
+        var folder = content.folder;
+  
+        var title = document.getElementById("rightside_title");
+        remove_all_node_children(title);
+        title.appendChild(document.createElement("h2").appendChild(document.createTextNode("Showing: " + content.name)));
+
+        var node = document.getElementById("rightside_content");
+        remove_all_node_children(node);
+        var toolbar = document.getElementById("rightside_toolbar");
+        remove_all_node_children(toolbar);
+        if (!content)
+          throw "show_content(): namedpath not found: " + namedpath;
+
+        var content_array = assemble(content.meta, folder, content.crypto_context);
+        content.meta = content_array[0];
+        content.crypto_context = content_array[1];
+        //folder.content[name] = content;
+
+        //todo: add own div for this
+        write_crypto_context_to(content.crypto_context, document.getElementById("rightside_signature_info"), content.namedpath);
+
+        switch(content.meta["content-type"]) {
+          default: 
+            echo_append("unknown content type, treating as text/plain: " +meta["content-type"]);
+          case "text/plain":
+            //monospaced for your ascii arts :)
+            //todo: should probably remove that...
+            /*
+            var pre = document.createElement("pre")
+            var code = document.createElement("code");
+            code.appendChild(document.createTextNode(meta.value));
+            pre.appendChild(code);
+            node.appendChild(pre);
+            */
+
+            var lines = content.meta.value.split("\n");
+            for(var i = 0; i < lines.length; ++i) {
+              node.appendChild(document.createTextNode(lines[i]));
+              node.appendChild(document.createElement("br"));
+            }
+            
+            var edit_button = document.createElement("a");
+            edit_button.setAttribute("onclick", 'edit_content("' + content.namedpath + '")')
+            edit_button.appendChild(document.createTextNode("edit"));
+            toolbar.appendChild(edit_button);
+
+            break;
+        }
+      };
+
+      function edit_content(namedpath) {
+        var content = userinfo.namedpaths[namedpath];
+        var folder;
+        if (content instanceof Folder) {
+          folder = content;
+          content = null;
+        } else 
+          folder = content.folder;
+
+        //assumes content is already assembled
+        var node = document.getElementById("rightside_content");
+        remove_all_node_children(node);
+        var toolbar = document.getElementById("rightside_toolbar");
+        remove_all_node_children(toolbar);
+
+        var editform = document.createElement("form");
+
+        if (!content) {
+          editform.appendChild(document.createTextNode("Content Name: "));
+          var contentname = document.createElement("input");
+          contentname.setAttribute("id", "content_edit_name");
+          editform.appendChild(contentname);
+          editform.appendChild(document.createElement("br"));
+          editform.appendChild(document.createElement("br"));
+        }
+
+        var textarea = document.createElement("textarea");
+        textarea.setAttribute("cols", "80");
+        textarea.setAttribute("rows", "50");
+        textarea.setAttribute("id", "content_edit_area");
+        if (content)
+          textarea.value = content.meta.value;
+        editform.appendChild(textarea);
+        node.appendChild(editform);
+
+        //add "apply" button
+        var edit_button = document.createElement("a");
+        if (content)
+          edit_button.setAttribute("onclick", 'apply_edited_content("' + content.namedpath + '")');
+        else
+          edit_button.setAttribute("onclick", 'apply_edited_content("' + namedpath + '")');
+        edit_button.appendChild(document.createTextNode("apply"));
+        toolbar.appendChild(edit_button);
+
+        toolbar.appendChild(document.createTextNode(", "));
+
+        //add "cancel" button
+        var cancel_button = document.createElement("a");
+        if (content)
+          cancel_button.setAttribute("onclick", 'show_content("' + content.namedpath + '")');
+        else 
+          cancel_button.setAttribute("onclick", 'show_folder_clicked("' + namedpath + '")');
+        cancel_button.appendChild(document.createTextNode("cancel"));
+        toolbar.appendChild(cancel_button);
+      };
+
+      function show_app_pane() {
+        show_folder_prefix(userinfo.filetree, "leftside");
+        
+        //key management button
+        var kmb = document.createElement("a");
+        kmb.setAttribute("style", "color: blue");
+        kmb.setAttribute("onclick", "show_key_management()");
+        kmb.appendChild(document.createTextNode("key management"));
+        var toolbar = document.getElementById("leftside_toolbar");
+        toolbar.appendChild(document.createTextNode(", "));
+        toolbar.appendChild(kmb);
+      }
+
+      function clear_rightside() {
+        remove_all_node_children(document.getElementById("rightside_title"));
+        remove_all_node_children(document.getElementById("rightside_signature_info"));
+        remove_all_node_children(document.getElementById("rightside_toolbar"));
+        remove_all_node_children(document.getElementById("rightside_content"));
+      }
+
+      function show_key_management() {
+        function table_row(row, nodes) {
+          nodes = nodes || [];
+          var tr = document.createElement("tr");
+          for(var i = 0; i < row.length; ++i) {
+            var td = document.createElement("td");
+            var last = td;
+            for(var j = 0; j < nodes.length; ++j) {
+              var node = document.createElement(nodes[j]);
+              last.appendChild(node);
+              last = node;
+            }
+            last.appendChild(document.createTextNode(row[i]));
+            tr.appendChild(td);
+          }
+          return tr;
+        }
+
+        function ka2s(a, property) {
+          var s = "";
+          for(var i in a)
+              s += i + ", ";
+          return s.substr(0, s.length-2);
+        }
+
+        //todo: keys MUST be encrypted & signed
+        //todo: EXTERMELY IMPORTANT: DONT ALLOW INJECTION OF "FALSE-ENCRYPTED", e.g.
+        //{type:"key:RSA",value:"something in plaintext",salt:...,salttrans:"enc:passphrase/master/..."}
+        //which currently shows up as encrypted by passphrase:master but is not
+        clear_rightside();
+        var content_div = document.getElementById("rightside_content");
+        var table = document.createElement("table");
+        table.setAttribute("cellpadding", "2");
+        table.setAttribute("border", "1");
+        table.appendChild(table_row(["name", "type", "signed by", "signature ok", "encrypted by", "encrypted by passkeys"], ["b"]));
+        for(var i in userinfo.keys) {
+          var key = userinfo.keys[i];
+          table.appendChild(table_row(
+            [key.name, 
+             key.type, 
+             key.crypto_context.signature.by, 
+             key.crypto_context.signature.ok ? "ok" : key.crypto_context.signature.reason,
+             ka2s(key.crypto_context.encrypted_by),
+             ka2s(key.crypto_context.encrypted_by_passkey)]));
+        }
+        content_div.appendChild(table);
+      }
+  
+      function show_folder_clicked(namedpath) {
+        var folder = userinfo.namedpaths[namedpath];
+        if (!folder)
+          throw "show_folder_clicked(): folder not found: '" + namedpath + "'";
+        folder.fetch_and_parse();
+        show_folder_prefix(folder, "rightside");
+      }
+
+      function show_folder_prefix(folder, prefix) {
+        function add_content(node, content) {
+          node.appendChild(document.createTextNode("Content: "));
+          var link = document.createElement("a");
+          link.appendChild(document.createTextNode(content.name));
+          //todo: how to get the right folder in here?
+          //link.setAttribute("onclick", "show_content(\"" + content.name + "\")");
+          link.setAttribute("href", 'javascript:show_content("' + content.namedpath + '") && false;');
+          link.setAttribute("style", "color: blue");
+          node.appendChild(link);
+          node.appendChild(document.createElement("br"));
+        }
+
+        //todo: make sure no one can "inject" unsigned segments
+        write_crypto_context_to(folder.crypto_context, document.getElementById(prefix + "_signature_info"), folder.namedpath);
+
+        if ("rightside" == prefix) {
+          var title = document.getElementById(prefix + "_title");
+          remove_all_node_children(title);
+          title.appendChild(document.createElement("h2").appendChild(document.createTextNode("Folder: " + folder.name)));
+        }
+        var fl = document.getElementById(prefix + "_content");
+        remove_all_node_children(fl);
+        echo_append("showing folder: " + folder.name);
+        for(var i in folder.subfolders) {
+          var a = document.createElement("a");
+          a.appendChild(document.createTextNode("Folder: " + folder.subfolders[i].name));
+          a.setAttribute("color", "blue");
+          a.setAttribute("onclick", "show_folder_clicked('" + folder.subfolders[i].namedpath + "')");
+          fl.appendChild(a);
+          fl.appendChild(document.createElement("br"));
+        }
+        for(var i in folder.content)
+          add_content(fl, folder.content[i]);
+
+        if (folder.untransformed.length) {
+          fl.appendChild(document.createElement("br"));
+          fl.appendChild(document.createTextNode("Could not transform:"));
+          fl.appendChild(document.createElement("br"));
+          for(var i = 0; i < folder.untransformed.length; ++i) {
+            var un = folder.untransformed[i];
+            fl.appendChild(document.createTextNode(un.type  
+              + ((un.name == undefined) ? "" : (": " + un.name))));
+            fl.appendChild(document.createElement("br"));
+          } //for folder.untransformed
+          fl.appendChild(document.createElement("br"));
+        } //if (folder.untransformed.length)
+  
+        var meta_a = document.createElement("a");
+        meta_a.setAttribute("onclick", "popup('meta of " + folder.namedpath + "', userinfo.namedpaths['" + folder.namedpath + "'].to_meta());");
+        //meta_a.setAttribute("href", "javascript:popup('meta of " + folder.namedpath + "', userinfo.namedpaths['" + folder.namedpath + "'].to_meta()) && false;");
+        meta_a.setAttribute("style", "color: blue");
+        meta_a.appendChild(document.createTextNode("get meta"));
+        var toolbar = document.getElementById(prefix + "_toolbar");
+        remove_all_node_children(toolbar);
+        toolbar.appendChild(meta_a);
+
+        toolbar.appendChild(document.createTextNode(", "));
+
+        //add folder button
+        var afb = document.createElement("a");
+        afb.setAttribute("onclick", "add_folder_clicked('" + folder.namedpath + "')");
+        afb.setAttribute("style", "color: blue");
+        afb.appendChild(document.createTextNode("add folder"));
+        toolbar.appendChild(afb);
+
+        toolbar.appendChild(document.createTextNode(", "));
+
+        //add content button
+        var acb = document.createElement("a");
+        acb.setAttribute("onclick", "edit_content('" + folder.namedpath + "')");
+        acb.setAttribute("style", "color: blue");
+        acb.appendChild(document.createTextNode("add content"));
+        toolbar.appendChild(acb);
+      };
+
+      function add_folder_clicked(namedpath) {
+        var new_folder_name = prompt("New for the new folder", "");
+        if (undefined == new_folder_name || !new_folder_name.length)
+          return;
+        var topfolder = userinfo.namedpaths[namedpath];
+        if (!topfolder)
+          throw "add_folder_clicked(): topfolder not found!";
+        echo_append("adding new folder '" + new_folder_name 
+          + "' to folder '" + namedpath + "'");
+        var rng = userinfo.rng;
+        var folder = topfolder.new_subfolder({name: new_folder_name}, topfolder.crypto_context.clone_encrypted());
+        process_one_meta({type: "salt:SHA-1", value: rng.stringOfLength(32)}, folder, folder.crypto_context);
+        //todo: finally write UserInfo.prototype.get_signing_key, doofus!
+        var signing_key = userinfo.get_key("master");
+        if (!signing_key)
+          throw "add_folder_clicked(): Could not get signing key!";
+        //add new folder key
+        //todo: ask user about folder key access rights
+        //right now: subfolder encrypted by passkey "master"
+        if (userinfo.passkey.name != "master")
+          throw "need passkey master to create new folder";
+        folder.keys["0"] = make_key({type: "key:AES", name: "0", scope: "local", 
+          value: rng.stringOfLength(32)}, folder, new CryptoContext());
+        folder.keys["0"].crypto_context.encrypted_by_passkey["master"] = 
+          rng.stringOfLength(16);
+        folder.crypto_context.encrypted_by["0"] = rng.stringOfLength(16);
+        folder.crypto_context.signature.by = "master";
+        echo_append("topfolder url: " + topfolder.get_url());
+        echo_append("topfolder signature url: " + topfolder.crypto_context.get_url(null, topfolder));
+        echo_append("folder url: " + folder.get_url());
+        echo_append("folder signature url: " + folder.crypto_context.get_url(null, folder));
+        // - add subfolder_meta to folder meta & sign
+        // - new folder meta file
+        // - sign both new files
+        var topfolder_src = fetch(topfolder.get_url());
+        if (!topfolder_src)
+          throw "add_folder_clicked(): Could not get parent folders' source";
+        var subfolder_meta = folder.to_subfolder_meta();
+        topfolder_src += subfolder_meta;
+        var topfolder_signature = Base64.encode(signing_key.sign(topfolder_src));
+        var folder_src = folder.to_meta();
+        var folder_signature = Base64.encode(signing_key.sign(folder_src));
+        upload(topfolder.get_url(), 
+          //topfolder
+          [{url: topfolder.get_url(), op: "append", content: subfolder_meta}, 
+          //topfolder signature
+          {url: topfolder.crypto_context.get_url(null, topfolder), op: "replace", content: topfolder_signature},
+          //new folder
+          {url: folder.get_url(), op: "new", content: folder_src},
+          //new folder signature
+          {url: folder.crypto_context.get_url(null, folder), op: "new", content: folder_signature}]);
+        setTimeout('show_app_pane(userinfo.filetree)', 0);
+      }
+
+      function run_onload() {
+        //nothing
+      };
+    </script>
+</html>
+  

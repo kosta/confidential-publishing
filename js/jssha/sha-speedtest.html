@@ -1,0 +1,47 @@
+<html>
+  <head>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="sha.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      function a8tos (/* array of 8bit number */ a) {
+        var s = "";
+        for(var i = 0; i < a.length; ++i)
+          s += String.fromCharCode(a[i]);
+        return s;
+      }
+
+      function run_test() {
+        var input = "alice@lastpageofthe.net:Hello SHA!";
+        var n = 1000;
+        var true_hashes = [ "afd607f2b52faddffefce60b6b20b8dd042d5f396bc08d443f526138a476ed2f",
+          "afd607f2b52faddffefce60b6b20b8dd042d5f396bc08d443f526138a476ed2f",
+          "3e0be3dbb9f0c8dddc11b408a8d28038ac8a8f5ce28a05c31cbe081b71627797",
+          "fe84e533ba6bff097be3156271af40ccae1a2c4e8831105719e4d9acb9875815",
+          "c6d7d849347c8725d858147ff0333c1f8565603b545848982f6b0d00b5088535",
+          "f3e00310585b92e42920588b1e895bca796449977b941838475a1c113fb631c5",
+          "bf2dc1124b35d016504de7a40a948a63a369e6e4f9b85e9391dd55e00738595c",
+          "c04fc711fa0b91027ac429a2254fe34d1124eda6b0d2891355dd0e504f5cccf7",
+          "3936ca3465a72292cab889feb4544b74487439f3bc749d23cbebb352b26747c3",
+          "9aa919014b4e256c06e3a6f54425b44df2f97373607e68e3965a35907b131c07",
+          "81181ff16289fc11d4259370c8f1f2f70c003c063edda2bad457caaa54419360" ];
+        document.write('testing first 10 iterations of SHA256("' + input + '"): ');
+        var success = true;
+        for(var i = 0; i < true_hashes.length; ++i) {
+          var hash = new jsSHA(input).getHash("SHA-256", "HEX", i);
+          if (hash != true_hashes[i]) {
+            success = false;
+            document.write("ERROR: hash " + i + " is " + hash + " but should be " + true_hashes[i]);
+          }
+        }
+        document.write((success ? "success" : "FAILURE!") + "<br><br>\n");
+        document.write('SHA256("' + input + '")^' + n + '<br>');
+        var before = new Date();
+        document.write("hash: " + new jsSHA(input).getHash("SHA-256", "HEX", n) + "<br>\n");
+        var after = new Date();
+        document.write("time passed (ms):" + (after - before) + "<br>");
+      }
+    </script>
+  </head>
+  <body onload="run_test()">
+  </body>
+</html>

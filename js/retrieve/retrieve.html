@@ -1,0 +1,84 @@
+<html>
+<body>
+<h1>Overview of manually handling the protocol</h1>
+<h2>Concepts</h2>
+<ul>
+<li>Key</li>
+<li>destination's public key</li>
+<li>passphrase</li>
+</ul>
+<h2>Generate private key</h2>
+	<h3>Generate the private key:</h3>
+  <p>
+		<tt>openssl genrsa -out key-2048.pem 2048</tt>
+	</p>
+	<h3>Generate corresponding public key</h3>
+  <p>
+		<tt>openssl rsa -in key-2048.pem -pubout -out pub-2048.pem</tt>
+	</p>
+	<h3>Encrypt private key with passphrase</h3>
+  <p>
+		<tt>openssl enc -e -aes-256-cbc -k password -in key-2048.pem -out key-2048.pem.aes</tt><br>
+			(key-2048.pem.aes is binary data)<br>
+		You can upload this key over an insecure medium to a webspace. This way, you can retrieve it to decrypt messages for you anytime you want.
+	</p>
+	<h3>Decrypt private key with passphrase</h3>
+  <p>
+		<tt>openssl dec -d -aes-256-cbc -a -k password -in key-2048.pem.aes -out key-2048.pem.aes.decrypted</tt><br>
+		(now key.pem and key.pem.aes.decrypted MUST be identical)<br>
+		Typically, you want to do this in order to start the protocol... TODO: elaborate
+	</p>
+<h2>Encrypting data</h2>
+	<h3>Generating a AES key and IV</h3>
+  <p>
+		<tt>dd if=/dev/random bs=1 count=32 status=noxfer | xxd -g 0 -p -c 256 > random-aes.key</tt><br>
+		<tt>dd if=/dev/random bs=1 count=16 status=noxfer | xxd -g 0 -p -c 256 > random-aes.iv</tt><br>
+		Note that the key must be secret, while the IV does not need to be secret
+	</p>
+	<h3>Encrypt the data using this AES key</h3>
+  <p>
+		<tt>openssl enc -e -aes-256-cbc -k password -in key-2048.pem -out key-2048.pem.aes</tt>
+	</p>
+	<h3>Encrypt AES key with the destination's public key (TODO: introduce concept of destination)</h3>
+  <p>
+		<tt>openssl rsautl -inkey key-2048.pem -encrypt -in <i>TODOdata+data.signed</i> -out data.signed.encrypted</tt>
+	</p>
+	<h3>Create the metadata</h3>
+  <p>
+		TODO
+	</p>
+	<h3>Upload the metadata and encrypted data to the server</h3>
+  <p>
+		Nobody will be able to read the contents of your data, unless he has access to the destination's private key or the AES key and IV used to encrypt the data.<br>
+		However, someone might modify the data. E.g. he could replace create your data with his own by generating an AES key, encryping it with the destination's public key, and encrypting his own data with the AES key he generated. In order to detect this, you should <i>sign</i> your data as described above.
+	</p>
+<h2>Decrypting data</h2>
+todo...
+<h2>Signing data</h2>
+	<h3>Generate a cryptographic hash of the data, and sign it with the private key:</h3>
+  <p>
+		<tt>openssl dgst -sha1 -sign key-2048.pem data | base64</tt>
+		<!-- <tt>sha1sum -b data | awk '{ print $1}' - | openssl rsautl -inkey key-2048.pem -sign</tt><br> -->
+		The output of this command is the signature of the data.
+	</p>
+	<h3>Create the metadata</h3>
+  <p>
+		<tt>{type: "signed:SHA-1", url: "data", signature: {type: "transform", transform: "base64", value: "<i>copy the signature here, you dont need to care about line breaks</i>"}}</tt>
+	</p>
+	<h3>Store the metadata and data on the server</h3>
+  <p>
+		Keep in mind that if your metadata/data are not encrypted, anyone might read it. It could also be manipulated, but this will easily detected by anyone knowning your public key by <i>verifying</i> the signature</p>
+<h2>Verifying a signature</h2>
+	<h3>Get the metadata and data</h3>
+  <p>todo...</p>
+	<h3>extract the signature</h3>
+  <p>todo...</p>
+	<p>convert the signature to binary data</p>
+	<h3>Verify the signature using the public key</h3>
+  <p>
+		<tt>openssl dgst -sha1 -verify pub-2048.pem -signature data.signature data</tt>
+	</p>
+<h2>Encrypted metadata</h2>
+<h2>Lists of metadata, name-salt</h2>
+</body>
+</html>

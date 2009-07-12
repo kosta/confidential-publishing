@@ -1,0 +1,41 @@
+<html>
+  <head>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="curve25519.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      function h2s(h) {
+        var ret = "";
+        h.replace(/(..)/g,
+          function(s) {
+            ret += String.fromCharCode(parseInt(s, 16));
+          });
+        return ret;
+      }
+
+    </script>
+  </head>
+  <body>
+  <h2>curve25519 demo page</h2>
+  <p>
+    <a href="http://cr.yp.to/ecdh.html">curve25519</a> is a fast public-key diffie hellmann function.
+  </p>
+  <hr>
+  <p>
+    <form name="make_public" onSubmit='return false;'>
+      Alice's private key (hexadecimal): <input name="private_key" type="text" value="a0cdd269c973363fdf8018ba535ce3e1be61fced66897706283ff2bb234b8862" size=64><br>
+      <input type="button" value="Calculate public key!" onClick="document.make_public.result.value =  straight_hex(curve25519_to8bitString(curve25519(curve25519_from8bitString(h2s(document.make_public.private_key.value)), curve25519_nine())));"><br>
+      Alice's public key (hexadecimal): <input name="result" type="text" value="" size="64"><br>
+    </form>
+  </p>
+  <hr>
+  <p>
+    <form name="share_secret" onSubmit='return false;'>
+      Alice's private key (hexadecimal): <input name="private_key" type="text" value="a0cdd269c973363fdf8018ba535ce3e1be61fced66897706283ff2bb234b8862" size=64><br>
+      Bob's public key (hexadecimal): <input name="public_key" type="text" value="2100b702cc8a595a298b2c54accf3eab59ae2574ca8b74ff7da170aa16b06c55" size=64><br>
+      <input type="button" value="Calculate shared secret!" onClick="document.share_secret.result.value =  straight_hex(curve25519_to8bitString(curve25519(curve25519_from8bitString(h2s(document.share_secret.private_key.value)), curve25519_from8bitString(h2s(document.share_secret.public_key.value)))));"><br>
+      shared secret (hexadecimal): <input name="result" type="text" value="" size="64"><br>
+    </form>
+  </p>
+  </body>
+</html>

@@ -1,0 +1,664 @@
+A decentralized system to securly store and publish dat and to 
+pass messages, with an implementation of a social network (or 
+calendar application?)
+
+Konstantin Welke
+
+
+
+
+Table of Contents
+
+    1 Introduction
+        1.1 Motivation
+        1.2 Goal
+        1.3 Related Work
+        1.4 Outline
+    2 Definitions
+        2.1 Trust
+        2.2 Malicious
+        2.3 User
+                Threats and attacks
+        2.4 Code
+                Threats and attacks
+        2.5 Client
+                Threats and attacks
+        2.6 Server
+        2.7 Network
+        2.8 ...?
+    3 Cryptographic methods
+        3.1 Symmetric Cryptography
+            3.1.1 Advanced Encryption Standard
+        3.2 Cryptographic Hashes
+            3.2.1 Secure Hash Algorithm
+        3.3 Public-Key Cryptography
+            3.3.1 RSA
+            3.3.2 Signing
+            3.3.3 Challenge-Response
+            3.3.4 Man-in-the-mid
+            3.3.5 dle-attack
+        3.4 Hypertext Transfer Protocol over Secure Socket Layer
+        3.5 JavaScript and its security model
+            3.5.1 base64
+            3.5.2 JSON
+        3.6 Typical Vulnerabilities in Web Applications
+            3.6.1 Cross-site scripting (XSS)
+            3.6.2 Cross-site request forgery (XSRF)
+    4 The Protocol
+        4.1 Metadata
+            4.1.1 User Identity
+            4.1.2 Keys
+            4.1.3 Transform
+            4.1.4 Signed
+            4.1.5 Content
+            4.1.6 Salt
+            4.1.7 Index
+        4.2 Retrieving data
+            4.2.1 Retrieving the private key
+            4.2.2 Retrieving data
+        4.3 Storing data
+        4.4 Publishing data
+            4.4.1 Key Revocation problem
+        4.5 Message passing
+        4.6 Notes on the JavaScript implementation
+            4.6.1 Limitation of content types
+    5 A Calendar application
+    6 Conclusion
+
+
+
+
+
+1 Introduction
+
+1.1 Motivation
+
+1.2 Goal
+
+• securely stores, retrieve, publish, communicate
+
+• trust no one
+
+• easy to use (-> easiest to use: nothing to install: web 
+  application)
+
+Three use cases:
+
+1. Store/Retrieve for yourself
+
+  • Only you have the key
+-> no key distribution
+
+  • simplest case :D
+
+  • key revocation sort of senseless: you just give yourself a 
+    new key. (Question: can you trust yourself. Honest answer: 
+    probably not.)
+
+2. Publish
+
+  • Key distribution
+
+  • Key revocation :(
+
+3. Message passing
+
+  • Write into other users inbox
+
+  • “Push” as opposed to “Pull”
+
+1.3 Related Work
+
+Whut?! Someone already did some work on this? 
+Un-be-fucking-lievable!
+
+1.4 Outline
+
+In this thesis, we will first define the terminology, such as the 
+different participants of our system, their roles and 
+responsibilities (page [sec:Definitions]ff). We then will 
+introduce the cryptographic methods used in this thesis (page [sec:Cryptographic-methods]
+ff). The fourth section combines these methods to present the 
+protocol to securely store, publish and communicate with other 
+users over an untrusted network (page [sec:The-Protocol]ff). The 
+fifth section outlines an example application, a calendar 
+application (on page [sec:A-Calendar-application]ff). (todo: oder 
+was anderes?) The last section discusses our results and focuses 
+on future work (page [sec:Conclusion]ff).
+
+
+
+
+2 <sec:Definitions>Definitions
+
+2.1 Trust
+
+• believe that someone does or doesnt do something?
+
+2.2 Malicious
+
+malicious or compromised
+
+2.3 User
+
+Actual human person that sits in front of the computer. We assume 
+he only has average computer knowledge, and we thus need to 
+design the system in a way that he has to make as few security 
+decisions as possible. bla bla user friendly, bla bla...
+
+He wants to
+
+• store / retrieve
+
+• publish
+
+• communicate
+
+  Threats and attacks
+
+• not (main) focus here (partially falls into psychology)
+
+• user can be tricked (or worse: extorted, forced, ...) to reveal 
+  their passphrase
+
+• many in-the-wild-attacks trying user privilege escalation
+
+• user is usually cannot judge if a method is cryptographically 
+  sound
+
+2.4 Code
+
+The program code that runs our protocol. Ideal program: does what 
+the user expects it to.
+
+  Threats and attacks
+
+• can contain all sorts of exploitable weaknesses that, in the 
+  worst case, reveal the users passphrase, private master key, 
+  ...
+
+• can be modified/exchanged before reaching user 
+
+  – malicious application programmer introducing vulnerability 
+    into programm
+
+  – modified by server which stores it (e.g. if its JavaScript)
+
+  – ...
+
+• typically, a user cannot
+
+  – judge if a method is cryptographically sound
+
+  – judge if the client-side code has been tampered with
+
+  – perform code reviews
+
+2.5 Client
+
+• computer, operating system and all programs used
+
+• probably most likely attack vector
+
+• still, not focus of this thesis >.<
+
+  Threats and attacks
+
+• Many attack vectors possible (worms, Trojan horses, ...). If 
+  compromised, very simple techniques such as key loggers can 
+  easily acquire the users passphrase, which gives the attacker 
+  full access.
+
+2.6 Server
+
+• Where the user stores and retrieves its data, which publishes 
+  the users data and over which the user can communicate with 
+  other users.
+
+• Without cryptographic safeguards, a malicious or compromised 
+  server can read all information stored on it (-> privacy). It 
+  can also manipulate the data stored on it in any way (delete, 
+  manipulate, create, ...)
+
+• We will impose cryptographic safeguards so that the server can 
+  only read data that everybody connected to the network is 
+  allowed to read. If the server manipulates our data, it will be 
+  detected when retrieved.
+
+• It is not (cryptographically) possible to hinder the server 
+  from deleting files or publishing old (signed) files. (however: 
+  document can have an expiration date after which it is not 
+  considered valid anymore)
+
+2.7 Network
+
+• everything else :)
+
+• classical attack model: malicious third-party that can read and 
+  manipulate data. i.e. conduct a man-in-the-middle attack (see 
+  page [sub:Man-in-the-middle-attack]). 
+
+• web-based attack model: 
+
+  – user is tricked into visiting a malicious website on his 
+    browser, which either
+
+    ∗ exploits a vulnerability in the user web browser to gain 
+      client privileges (in this thesis, this is considered a 
+      vulnerability of the client)
+
+    ∗ exploits a vulnerability in the web application that the 
+      user is using, e.g. allowing cross-site scripting (see [sub:XSS]
+      ).
+
+    ∗ Depending on the attack, attacker does not need to aquire 
+      user credentials directly, but uses the credentials in the 
+      users browser.
+
+  – web applications are only safeguarded against web-based 
+    attacker (e.g. flickr allows anyone to see a picture if exact 
+    url is known (todo: check))
+
+2.8 ...?
+
+
+
+
+3 <sec:Cryptographic-methods>Cryptographic methods
+
+3.1 Symmetric Cryptography
+
+3.1.1 Advanced Encryption Standard
+
+3.2 Cryptographic Hashes
+
+3.2.1 Secure Hash Algorithm
+
+3.3 Public-Key Cryptography
+
+3.3.1 RSA
+
+3.3.2 Signing
+
+• Singning = Encrypting
+
+  – Never sign anything, sign the Hash!
+
+  – Challenge response: 
+
+    ∗ Encrypt Hash of number
+
+    ∗ If you encrypted number, following attack is possible:
+
+      ∙ Alice tells Bob “proof your identity by encrypting 
+        47e3bcd1c3c06c4f19d2fd866ae701b8e92c6840 with your 
+        private key. I know your public key, so I can verify that 
+        you are who you claim to be”
+
+      ∙ Bob signs the number and sends it to the Alice
+
+      ∙ Alice laughs diabolically, because Bob just signed the 
+        SHA-1 hash of the message "I want to overthrow the US 
+        government". She can thus prove that Bob admitted to be a 
+        terrorist
+
+3.3.3 Challenge-Response
+
+if needed?
+
+3.3.4 <sub:Man-in-the-middle-attack>Man-in-the-mid
+
+3.3.5 dle-attack
+
+3.4 Hypertext Transfer Protocol over Secure Socket Layer
+
+mention cookies
+
+3.5 JavaScript and its security model
+
+ok, now the section title is wrong :(
+
+3.5.1 <sub:base64>base64
+
+todo: irgendwo voellig anders einfuehren... oje der kapitelname 
+ist total falchs
+
+In order to encode binary data bla blu, base64[rfc2045] is used.
+
+3.5.2 JSON
+
+• todo: ERSTMAL NETSTRINGS WEGLASSEN UND LIEBER BASE64 NEHMEN 
+
+  – additional type: netstring
+
+  – example: 12:Hallo Klaus!,
+
+  – descibed in http://cr.yp.to/proto/netstrings.txt
+
+  – directly allows binary in json without escape chars, i.e. can 
+    directly be passed to decryption function, etc.
+
+  – for simplicity, we still call it “JSON”, even though its not 
+    exacly.
+
+3.6 Typical Vulnerabilities in Web Applications
+
+3.6.1 <sub:XSS>Cross-site scripting (XSS)
+
+allows code injection <script type=”javascript”>alert('hello 
+world');</script>
+
+3.6.2 <sub:XSRF>Cross-site request forgery (XSRF)
+
+and maybe others: HTTP header injection, response splitting, SQL 
+injection
+
+
+
+
+4 <sec:The-Protocol>The Protocol
+
+4.1 Metadata
+
+We consider the (possibly encrypted and signed) content that the 
+user wants to store data. The information on how to decrypt the 
+data and verify the signature is stored in the metadata. Metadata 
+is also used to list what data exists and to arrange it 
+hierachically.
+
+If not noted otherwise, all strings are encoded in UTF-8.
+
+(todo: is this necessary? If a value or an object was expected, 
+but an array is parsed, you can treat any value from the array as 
+the expected value)
+
+(todo: is this necessary? Metadata is stored as a JSON object, 
+with the “type” property set to its type. In order to ease the 
+parsing of data, the type property will always be serialized 
+first.)
+
+4.1.1 User Identity
+
+The user identity is used to distinguish users. Similar to an 
+email address, it is composed of the user name (usually choosable 
+by the user), the '@' character, and the servers domain name. 
+Example: “Konstantin Welke@crypto.lsfks.uni-freiburg.de”. 
+
+The user identity consists of letters from all alphabets (todo: 
+but only the “normal” latin one, not “similar” ones, like “latin 
+italic”), numbers (0-9), '+', '_', '-' and ' '. Note that the 
+blank character ' ' is the the only whitespace allowed and a 
+blank character can never be followed by another blank character. 
+The restrictions in the user identity serve to help the user 
+distinguish different user identities.
+
+4.1.2 Keys
+
+The cryptographic keys are the most important building block of 
+this protocol. A key is one of the following either type:
+
+• key:AES-256
+
+• key:RSA-2048
+
+The key value itself is usually encoded in base64 (see below). A 
+key can also have an identity, in order to reference it. E.g. 
+when encrypting a message to “Konstantin 
+Welke@crypto.lsfks.uni-freiburg.de”, we will encrypt that message 
+with a symmetric key. The symmetric key will be prepended to the 
+message, and encrypted with the recipients public key. So, in 
+order to express that something is encrypted with a key, we need 
+to be able to reference it. We use the format “key name:user 
+identity” to identify keys (where key name follows the same 
+conventions as the user identity). Note that unless otherwise 
+noted in the protocol, a user can only declare keys for himself. 
+Thus, unless otherwise noted, keys for different user identities 
+should be discarded.
+
+Asymetric keys can also have the property private, which can 
+either be true and false is false. If ommited, it is false.
+
+todo: not-valid-before, not-valid-after
+
+(todo: when exaclty can we ommit the user identity? If in the 
+context it is clear which user identity the key belongs to, the 
+user identity can be ommited from the key identity. Thus, only 
+the key name is used.)
+
+• key name problem...?
+
+• key hierarchies
+
+4.1.3 Transform
+
+The transform type consits of a value property and a transform 
+property. The transform property describes how to transform the 
+value. 
+
+An example of a JSON encoded key is:
+
+{
+
+ ”type”:”key:AES-256”,
+
+ “id”:”somekey:Konstantin Welke@crypto.lsfks.uni-freiburg.de”,
+
+ “value”:
+
+ {
+
+  ”type”:”transform”,
+
+  “transform”:”base64”,
+
+  ”value”:”VGhpcyBBRVMga2V5IGlzIGhpZ2hseSB1bmxpa2VseQo=”
+
+ }
+
+}
+
+4.1.4 Signed
+
+The signed type signs its value with the signature using the key 
+by and the hash algorithm specified in its type. Currently, the 
+only supported type is “signed:SHA-256”.
+
+{
+
+ “type”:”signed:SHA-256”,
+
+ “value”:
+
+ {
+
+  ”type”:”key:AES-256”,
+
+  “id”:”somekey:Konstantin Welke@crypto.lsfks.uni-freiburg.de”,
+
+  “value”:
+
+  {
+
+   ”type”:”transform”,
+
+   “transform”:”base64”,
+
+   ”value”:”VGhpcyBBRVMga2V5IGlzIGhpZ2hseSB1bmxpa2VseQo=”
+
+  }
+
+ }
+
+ “signature”:
+
+ {
+
+  “type”:”transform”,
+
+  “transform”:”base64”,
+
+  “value”:”
+HH5fORrEaQtMoFcxaIPaD+4FDA2kKvILLWQ5d/IQCqxI7y3NVmd9ZbHDiU
+
+           
+qjkHWedcpKRA9A2MLAP1e9HlYN6bKWCZ/olqNW+7+5pY/PQO6leueF6hfG
+
+           UhrAyT8VYJm74O/uvcM3sJNnkL/Qj3bzTFwM 
+pQmI/IjVSr34ol35EUY=”
+
+ }
+
+ “by”:”public:Konstantin Welke@crypto.uni-freiburg.de”,
+
+}
+
+4.1.5 Content
+
+• dont allow html
+
+• type: content
+
+• content-type: MIME type of content
+
+  – special types: 
+
+    ∗ text/bbtagged (todo: name for that)
+
+    ∗ index (e.g. “profile” for another index in same 
+
+• name usually filename
+
+• uri or value
+
+  – uri can be local (e.g. “somefile”)
+
+  – uri global (e.g. “http://crypto.uni-freiburg.de/Konstantin 
+    Welke/somefile”)
+
+  – value directly is the value (only use it for small values)
+
+• see: “Limitation of content types” [sub:Limitation-of-content] 
+  in the notes on the JavaScript implementation (todo: names 
+  correct?)
+
+4.1.6 Salt
+
+• type: salt:<hashing algorithm> (e.g. “salt:sha-1”)
+
+• special: salt:none has no value and disables hashing
+
+• value: value to prepend
+
+• will be base64-encoded to avoid problems
+
+• e.g. if the salt is “salt:sha-1”, the salt value is “sugar”, 
+  and the user wants to access a file “alice-loves-bob” the 
+  actual filename to access the content is sha-1 of (“
+  sugaralice-loves-bob”) = 
+  54debda83191079e97a6cd4c3aba00d1dccdb106 (in practice, salt 
+  will be binary and at least 64 bit long)
+
+• only makes sense if salt, file and file metadata are encrypted. 
+  thus, the http server cannot know that 
+  54debda83191079e97a6cd4c3aba00d1dccdb106 is the salted and 
+  hashed filename “alice-loves-bob”
+
+• there should be only one salt in one directory (to avoid stupid 
+  problems)
+
+4.1.7 Index
+
+• just concatenation of objects
+
+• this way, new objects can be inserted just by concat
+
+• typically stored in each directory in file called “index”
+
+• doesnt need to exist
+
+4.2 Retrieving data
+
+4.2.1 Retrieving the private key
+
+• needs password to make symmetric key out of passphrase (todo: 
+  introduce the whole idea somewhere)
+
+• idea: use sha-n to generate n-bit symmetric key
+
+• openssl: use MD5 multiple times to generate n-bit symmetric key
+
+• get private key from private-keys/keyname
+
+• decrypt private key using symmetric key
+
+• profit :)
+
+4.2.2 Retrieving data
+
+• simple HTTP GET
+
+• evtl. handle “index”
+
+• display what you want
+
+4.3 Storing data
+
+• TLS in JSON :)
+
+4.4 Publishing data
+
+• data is automatically published
+
+• but in order to make sense of it, you need the right key
+
+• keys are stored in folder “keys”
+
+• distinction: contacts and friends
+
+• by convention, friends can read your keys (and see who your 
+  friends and contact are)
+
+• more abstract: groups of contacts, each group sharing a public 
+  key you gave them
+
+4.4.1 Key Revocation problem
+
+4.5 Message passing
+
+• Same as publishing, just that you can write to the recipients 
+  inbox. weird, huh?
+
+• so far, everything world-readable. would be privacy-problem
+
+• solution: make it write-only except for user
+
+• so now, we need user authentification :(
+
+4.6 Notes on the JavaScript implementation
+
+4.6.1 <sub:Limitation-of-content>Limitation of content types
+
+• only text/plain, text/bbcoded (not a standard type), image
+
+• NOT html: security risk (javascript, flash...)
+
+  – decoded html page could run javascript to sign anything, 
+    steal private key, ...
+
+
+
+
+5 <sec:A-Calendar-application>A Calendar application
+
+
+
+
+6 <sec:Conclusion>Conclusion
+
+for teh win!!!!1
+
+
+
+
+[LaTeX Command: bibtex]
+

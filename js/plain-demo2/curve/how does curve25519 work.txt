@@ -1,0 +1,31 @@
+how does curve25519 work?
+
+1. hash userid:passphrase
+echo -n alice@lastpageofthe.net:sh4dwsMvWhrLghtShldBi6671336 | openssl dgst -sha256
+be57f2a3517c9f3e80b3ce4e7718101a9ea9cf29555488334ee6aee1cd7db0c0
+
+2. clamp to curve25519 private key
+curve25519_clamp be57f2a3517c9f3e80b3ce4e7718101a9ea9cf29555488334ee6aee1cd7db0c0 > curve-key.hex
+
+this is your salsa20 or aes256 key 
+
+3. generate some random bytes as plaintext and iv
+dd if=/dev/random bs=1 count=8 | base64 > curve-plain.base64
+dd if=/dev/random bs=1 count=8 | xxd -g 0 -p -c 256 > curve-iv.hex
+
+4. encrypt the plaintext with your iv and private key
+(here, salsa20 is used, but aes256 work just as well)
+
+base64 -d curve-plain.base64 | salsa20 -iv `cat curve-iv.hex ` -key `cat curve-key.hex` | base64 > curve-encrypted.base64
+
+5. now using all this information, create the meta
+{ "type": "key:curve25519", "name": "curve", "valuetrans": "base64|enc:passphrase:salsa20:c282f778793d5833", "value": "MSove8boJ3g=", "plain": "FLXaeJVKyrk=", "plaintrans": "base64"}
+
+Note that the iv after the passphrase is from curve-iv.hex, "value" is from 
+curve-encrypted.base64 and "plain" is from curve-plain.base64. The meaning of 
+this line is that given the passphrase for the key "curve", we can decrypt 
+"value" to "plain". If the decrypted value is not equal to the content of 
+"plain", the passphrase was wrong. 
+Curve25519 itself is not an encryption/decryption algorithm. It can merely 
+calculate a shared secret between two parties. That's why after curve25519, 
+we specify that we use salsa20 to test 

@@ -1,0 +1,46 @@
+<html>
+<head><title>Test</title>
+<script src="../../external/gibberish-aes/src/gibberish-aes.js" type="text/javascript"></script>
+<script src="../base64/base64.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+function echo_clear() { document.getElementById("jsout").firstChild.data = ""; };
+function echo_append(msg) { document.getElementById("jsout").firstChild.data += msg; };
+function echo_set(msg) { document.getElementById("jsout").firstChild.data = msg; };
+
+function test() {
+	var max = 256*256;
+	var s = "";
+
+	//generate
+	for(var i = 0; i < max; ++i) 
+		s += String.fromCharCode(i);
+	s = Base64.decode16(Base64.encode16(s));
+
+	//verify
+	var success = true;
+	if (s.length != max)
+		success = false;
+	else
+		for(var i = 0; i < max; ++i)
+			if (s.charCodeAt(i) != i) {
+				success = false;
+				break;
+			}
+
+	if (success)
+		echo_set("one char can hold 16 bit binary data");
+	else {
+		if (256*256 == i)
+			echo_set("sorry, string lengths dont match")
+		else
+			echo_set("sorry, one char cant hold 0x" + i.toString(16));
+	}
+}
+
+</script>
+</head>
+<body onload="test()">
+Output: <div id="jsout">js disabled</div>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<html>
+  <head>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa-sign.js" type="text/javascript"></script>
+    <script src="../asn1/asn1.js" type="text/javascript"></script>
+    <script src="../jssha/sha.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      function get_content() {  
+        var content = document.form0.content.value;
+        for(var i = 0; i < document.form0.content_trans.length; ++i) 
+          if (document.form0.content_trans[i].checked) {
+            if ("hex" == document.form0.content_trans[i].value)
+              content = h2s(content);
+            else if ("base64" == document.form0.content_trans[i].value)
+              content = Base64.decode(content);
+          }
+        return content;
+      }
+
+      function do_sign() {
+        document.form0.signature.value = "Signing... please wait";
+        var content = get_content()
+
+        var hash_type;
+        for(var i = 0; i < document.form0.hash_type.length; ++i)
+          if (document.form0.hash_type[i].checked)
+            hash_type = document.form0.hash_type[i].value;
+
+        var key = RSAKey.new_key_from_openssl(document.form0.key.value);
+        if (!key.private) 
+          throw "signing requires a private key!"
+
+        var start = new Date();
+        document.form0.signature.value = Base64.encode(key.sign(content, hash_type));
+        var end = new Date();
+        document.form0.timings.value += (end-start) + " ";
+      }
+
+      function do_verify() {
+        var content = get_content();
+        var signature = Base64.decode(document.form0.signature.value);
+        var key = RSAKey.new_key_from_openssl(document.form0.key.value);
+        var start = new Date();
+        var verify = key.verify(content, signature);
+        var end = new Date();
+        document.form0.timings.value += (end-start) + " ";
+        if (verify[0])
+          alert("Verification SUCCESS");
+        else
+          alert("Verification FAILED:\n" + verify[1]);
+        if (verify[2]) //hash algorithm
+        for(var i = 0; i < document.form0.hash_type.length; ++i)
+          document.form0.hash_type[i].checked = (document.form0.hash_type[i].value == verify[2]);
+      }
+    </script>
+  </head>
+  <body>
+  <h2>RSA sign/verify test page</h2>
+  <p>openssl can only do RSASSA-PSS, which "decrypts" the EMSA-PKCS1-v1_5 
+    function to sign, and "encrypts" that to compare with the hash to verify.
+    (see <a href="http://www.rsa.com/rsalabs/node.asp?id=2125">PKCS 1</a>).
+    <br>
+    EMSA-PCKS1-v1_5 basically writes <tt>0x00 0x01 padding 0x00 hashid hash</tt>,
+    where hashid is:<br>
+<pre><code>    MD2: (0x)30 20 30 0c 06 08 2a 86 48 86 f7 0d 02 02 05 00 04 10
+    MD5: (0x)30 20 30 0c 06 08 2a 86 48 86 f7 0d 02 05 05 00 04 10
+    SHA-1: (0x)30 21 30 09 06 05 2b 0e 03 02 1a 05 00 04 14
+    SHA-256: (0x)30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20
+    SHA-384: (0x)30 41 30 0d 06 09 60 86 48 01 65 03 04 02 02 05 00 04 30
+    SHA-512: (0x)30 51 30 0d 06 09 60 86 48 01 65 03 04 02 03 05 00 04 40</code></pre><br>
+    hash is the hash of the content to sign<br>
+    and padding is a number of 0xFF bytes to pad the message to the RSA keylength.
+  </p>
+  <form name="form0" onSubmit='return false;'>
+      key from openssl (public or private):<br>
+      <textarea name="key" rows=5 cols=80>-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA1lq6C0WYTLjzAV9TLa2U13+8eMlo9nhWCOucRg2Teh724Frm
++YtP9eWxkaoqmn/a1zl9JL+hpHZeKraqRUS/RwMIAnLYwbvhsQZN0FO0eT5t/bOW
+tcoD2PTERDgIsRPO6TP/3O7QGyLJ+K+e+s04yk6yoT0sQEj0MDOvmByFcJo9zYo8
+sOpnNjM9FOUQsovuWvEXvNbavwSBZGCvw9swmQ5bY1pyUN1vvy06MVS+3B9AVFcv
+/W/+S0roYrUR8s2EYqous3e5ne0oEWc7Lz3KnqEwYSOZjMgLR9oisZvRzRjSIYlV
+dR2M/y7buE7CvJj7e2svw4SL2iqxQHlF9VlTFQIDAQABAoIBAQCKV6nFBpihw6gK
+VbSAQYxTfPxt1Eeq8sVMIowMZkytP3jEGccCfVgQ8rqksXenmSbrSw4qfodbdo2V
+8ah45kKxGRK9SdP9TT3/G3tzHeLXcWRZneOB1iyfhHF7OdLaPleHCOl0dKjZKp3B
+o87uPS8O2rXM/Icnwi3fQixs9tNkdOgqpaTXYZVR60qtODRH6WaqOXtiw0nG2hvv
+OM3j2I9G3hSaLuBk9fZYygH9DF6n5RF8f/0gaIkgX0kGYoPq60yZ/hKlgn7AWz0d
+6O1VyO8QhJdhMyVrqyHkryXTlBgJKUW2vdXm34Xu+sKEFt/fLsqnOxcEc8cGrjo9
+8IwyNAYBAoGBAP/eYyYDZXUoGLnDVuxrb5w42Qndx9lpwFzzIZ+MKPjpbtLrBEKY
+DXF7U+RifAS/qCbWX+4rSus0bXmrEFvAqeb83/iwniyNzW4ZEULGwi/1jXu1fpmV
+iK6ZNd5Zz6gu0E2r/lLSnLD14kPQ5vfiOCsXwBcYYF6v3e1ySulY9n+BAoGBANZ2
+4sWRpTBNJ3e2hEXw1Dh/UA9MV+ppYQ5fiE2gsnurpQH4nwrMBtzegsZJQtP6S3oz
+Vh6G1hx4nYvtrSKGnJgIjEjcZ2Nqw+uRo0VGniiOoUE3JmpYN2GrpsmpZBM3d/gj
+qxivgenvjEShHCxn6RLVNrHBcJLOnz3uNLEZL52VAoGAYxmYHzX7isfP48rzlLf7
+z275KOgcKmnaFmYYpLndeKK4yLo7uSs5MbXJhVBbpl8w2nH3T8C20KhKqnAF8vOJ
+Gqzgdmq5qJn3cegFlm5y8a5ScRKXiRawjKdMhOUWF5aiGSM/aoamJ6fkTc3QVzvn
+81DMlmVblfDZrMiymPRa7IECgYAu/RdMgE+4GH94PDYY+N4WjtZks65jfrk0I/xC
+Pd49OGtL1kRKYk9ynxH6Dd0lgqZ83LiWsaZB0K98FBQmB2ZR7TWHVTsVzjOk7mDe
+cc1/R1jPaBzzmeZwcOJ3NrTlfPa9GFuJahLFxaVu9/mrRQ0NAkgchCx9DeZX9FP5
+JXKITQKBgQD42qC6QaICRBre+zBvQfhcwIYr3DKqy4uUc1gVOoLYTf9Mr7hdZ84g
+oWGfXdNiTTWXE5ZBldrsv++Ih5aPzhVjbJ9WJlqkDSDylIqLZ5o7CcPCAzClZwbf
+2Ho7Qo4hHwatFDleY7XF4GqVyCBMlZLtBrfSLB7ioc8lqZUaIPhaDw==
+-----END RSA PRIVATE KEY-----</textarea><br>
+      <br>
+      content to sign:<br>
+      encoded as: <input type="radio" name="content_trans" value="plain" checked>plain 
+      <input type="radio" name="content_trans" value="hex">hex 
+      <input type="radio" name="content_trans" value="base64">base64 <br>
+      <textarea name="content" rows=5 cols=80>I will be signed</textarea><br>
+      <br>
+      signature (encoded as base64):<br>
+      <textarea name="signature" rows=5 cols=80></textarea><br>
+      <br>Hash algorithm: 
+      <input type="radio" name="hash_type" value="MD2" disabled><font color="grey">MD2</font>
+      <input type="radio" name="hash_type" value="MD5" disabled><font color="grey">MD5</font>
+      <input type="radio" name="hash_type" value="SHA-1" checked>SHA-1 
+      <input type="radio" name="hash_type" value="SHA-256">SHA-256
+      <input type="radio" name="hash_type" value="SHA-384">SHA-384
+      <input type="radio" name="hash_type" value="SHA-512">SHA-512<br>
+      <input type="button" value="sign" onClick="do_sign(); return false;">
+      <input type="button" value="verify" onClick="do_verify(); return false;"><br>
+			<input type="text" name="timings"></input>
+    </form>
+    <p>
+      In order to sign/verify using openssl, save your content in a file (here: called <tt>content</tt>).<br>
+      If you want to verify a signature, first copy it to a text file (here: called <tt>signature</tt>) and Base64-decode it:<br>
+      <tt>base64 -d signature > signature.raw</tt><br>
+      Now you can verify it:<br>
+      <tt>openssl dgst -sha1 -verify public.pem -signature signature.raw -in content</tt><br>
+      Note: you might need to replace -sha1 with -sha256, -sha485 or -sha512<br>
+      Note: if you want to use your private key to verify, use -prverify private.pem<br>
+      <br>
+      If you want to create a signature:<br>
+      <tt>openssl dgst -sha1 -sign private.pem -in content -out signature.raw</tt><br>
+      Now Base64-encode it:<br>
+      <tt>base64 signature.raw > signature</tt><br>
+      You can now copy the contents of <tt>signature</tt> to the signature field and click "verify".
+    </p>
+    <p>
+      All this is only possible thanks to <a href="http://www-cs-students.stanford.edu/~tjw/jsbn/">Tom Wu's JavaScript BigInteger & RSA library</a>.<br>
+      If you have any questions, contact me at k o s t a at f i l l i b a c h dot d e
+    </p>
+  </body>
+</html>

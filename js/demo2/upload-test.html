@@ -1,0 +1,70 @@
+<html>
+  <head>
+    <title>Post/Upload test</title>
+    <script src="../jssha/sha.js" type="text/javascript"></script>
+    <script src="../salsa20/salsa20.js" type="text/javascript"></script>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa-sign.js" type="text/javascript"></script>
+    <script src="../asn1/asn1.js" type="text/javascript"></script>
+  </head>
+  <body onload="post_stuff()">
+    please wait... calculating signatures is like... hard!
+  </body>
+  <script type="text/javascript">
+    
+    function netstring(s) {
+      if (s instanceof Array) {
+        var ret = "";
+        for(var i = 0; i < s.length; ++i)
+          ret += netstring(s[i]);
+        return ret;
+      }
+      else
+        return s.length + ":" + s + ",";
+    }
+
+    function post_stuff() {
+      var private_key = RSAKey.new_key_from_openssl("-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA1lq6C0WYTLjzAV9TLa2U13+8eMlo9nhWCOucRg2Teh724Frm\n+YtP9eWxkaoqmn/a1zl9JL+hpHZeKraqRUS/RwMIAnLYwbvhsQZN0FO0eT5t/bOW\ntcoD2PTERDgIsRPO6TP/3O7QGyLJ+K+e+s04yk6yoT0sQEj0MDOvmByFcJo9zYo8\nsOpnNjM9FOUQsovuWvEXvNbavwSBZGCvw9swmQ5bY1pyUN1vvy06MVS+3B9AVFcv\n/W/+S0roYrUR8s2EYqous3e5ne0oEWc7Lz3KnqEwYSOZjMgLR9oisZvRzRjSIYlV\ndR2M/y7buE7CvJj7e2svw4SL2iqxQHlF9VlTFQIDAQABAoIBAQCKV6nFBpihw6gK\nVbSAQYxTfPxt1Eeq8sVMIowMZkytP3jEGccCfVgQ8rqksXenmSbrSw4qfodbdo2V\n8ah45kKxGRK9SdP9TT3/G3tzHeLXcWRZneOB1iyfhHF7OdLaPleHCOl0dKjZKp3B\no87uPS8O2rXM/Icnwi3fQixs9tNkdOgqpaTXYZVR60qtODRH6WaqOXtiw0nG2hvv\nOM3j2I9G3hSaLuBk9fZYygH9DF6n5RF8f/0gaIkgX0kGYoPq60yZ/hKlgn7AWz0d\n6O1VyO8QhJdhMyVrqyHkryXTlBgJKUW2vdXm34Xu+sKEFt/fLsqnOxcEc8cGrjo9\n8IwyNAYBAoGBAP/eYyYDZXUoGLnDVuxrb5w42Qndx9lpwFzzIZ+MKPjpbtLrBEKY\nDXF7U+RifAS/qCbWX+4rSus0bXmrEFvAqeb83/iwniyNzW4ZEULGwi/1jXu1fpmV\niK6ZNd5Zz6gu0E2r/lLSnLD14kPQ5vfiOCsXwBcYYF6v3e1ySulY9n+BAoGBANZ2\n4sWRpTBNJ3e2hEXw1Dh/UA9MV+ppYQ5fiE2gsnurpQH4nwrMBtzegsZJQtP6S3oz\nVh6G1hx4nYvtrSKGnJgIjEjcZ2Nqw+uRo0VGniiOoUE3JmpYN2GrpsmpZBM3d/gj\nqxivgenvjEShHCxn6RLVNrHBcJLOnz3uNLEZL52VAoGAYxmYHzX7isfP48rzlLf7\nz275KOgcKmnaFmYYpLndeKK4yLo7uSs5MbXJhVBbpl8w2nH3T8C20KhKqnAF8vOJ\nGqzgdmq5qJn3cegFlm5y8a5ScRKXiRawjKdMhOUWF5aiGSM/aoamJ6fkTc3QVzvn\n81DMlmVblfDZrMiymPRa7IECgYAu/RdMgE+4GH94PDYY+N4WjtZks65jfrk0I/xC\nPd49OGtL1kRKYk9ynxH6Dd0lgqZ83LiWsaZB0K98FBQmB2ZR7TWHVTsVzjOk7mDe\ncc1/R1jPaBzzmeZwcOJ3NrTlfPa9GFuJahLFxaVu9/mrRQ0NAkgchCx9DeZX9FP5\nJXKITQKBgQD42qC6QaICRBre+zBvQfhcwIYr3DKqy4uUc1gVOoLYTf9Mr7hdZ84g\noWGfXdNiTTWXE5ZBldrsv++Ih5aPzhVjbJ9WJlqkDSDylIqLZ5o7CcPCAzClZwbf\n2Ho7Qo4hHwatFDleY7XF4GqVyCBMlZLtBrfSLB7ioc8lqZUaIPhaDw==\n-----END RSA PRIVATE KEY-----");
+      var shared_secret = "abcdabcdabcdabcdabcdabcdabcdabcd";
+      var expected_content = "5ff3f33a14d8935b8f2dd5667f44023d4dbad98abd1519bf14ec923d80b2d6ac8822e42f8018870b52209da026ab2592aa5b2e4bc9814f6553ea5ef253f1fc0359442859b8382656c91bb68c426f139d1bb0fedc2c59305be47c14a3e8c9ed76f69134d7725e81c4fd6ac12bb44071136612620401326483462e442ee908812228aeea111d646e44458b8a8f156d43d580b5d81bb6e63fec04aa73f1e07cc78e46aaae361fcdce05ab635e9c22ae01bc5fd842f57207158d2f76101272d4bb4611552726a8246181af7782971ec8d345c5aa373253420b538e7271e6924214701fc5e285b928a1621617a773781153a428d96ff57898531bc0d085df53baea60";
+      var new_content = "Zqu4mpWqN47nSdm12VgucmefHY33qAUbxkBV+Txs7sUWAiw+kfiJaoKobX7qYAbQ\nT/hhICfouCcoWxXcQeBu7ovJ6jDTEghqViqt0lI9rDTSVTKp0Fnh6xGL929UjeJS\nSZSuNKS7PSDcFTmB8wAMl9CV6nJvBWrYW1sdfLLCh19Mj3CfKLShc6I/Fp518eUs\nz1g79jvzubkw/+maYFgOcOGmSSfgLs5kXBUA1b78oGKcWJeye6vGujrZdhd9Vnl2\nDElkaORrzua54WcYmPu5so9W7p0HmcaQSTqlIarFn2tH+4jiEzA5HhptCH75OZmR\nu16CZDGTL9JgJwpUz9Pt9g==";
+      var new_meta = '{ "type": "signature", "url": "meta.revision", "urltrans": "base64", "signedby": "master" }\n{ "type": "key:AES", "name": "0", "scope": "local", "valuetrans": "base64|enc:passkey:master:58d291c262f0b66d1f996844723f1c1e", "value": "vE0t0tU7gYgsq0rgtFaEc5uuCT7lqvQEJN1Mk7GXpbTMYLcc3nPX6Gba1Y7hWUgv" }\n{ "type": "salt:SHA-1", "valuetrans": "base64|enc:0:cd738dd9a8c6c7d066c7e3aee646f7a9", "value": "9dCxKKV5xxzs+aLiPGwhag==" }\n{ "type": "meta", "valuetrans": "base64|enc:0:dc933e14b92d2eb419aa60691fcfcde6", "value": "rSmy5lqL93lSKNWli4uq+yAXeRCrvhYvJyW2RN5Y+J/9e1x7hzHpQZ//JB8A80dMvyQGBIFDnP8FW5iuZwI8Mh1+4GIHs+0VY2HDkUKsGX/n1RWwFmdPjr+5Fke45QFYlxlVNHGLYmcLPbAbXSidvWEZpXV5lEB0ApZVEZkyQLZmX4L7ypf0icAWsS9Y9olR" }\n{ "type": "meta", "valuetrans": "base64|enc:0:d8a8f7df94b6d4b83816d728d1f1dfea", "value": "pA12HYap8P0A6g9EbV67J5EGzN4Sr2qlgh0H7Gp/KE8lHsi8/IDdRGeHd2sUK4+8u7NGLtanqD66nljkQNHPf6Z4aYQOQef1lHQriiOXW5yzk+defFeaDLmZ6nt8RHzargliVsetqkFjCGfdroWouyM0NnttU6RzGi+q0u+BwDcMLw3l87IRWvZDAa7ONxDI" }\n';
+
+      var body = netstring(["nextop", "replace",
+        "nextfile", "meta.revision",
+        "content", new_content,
+        "nextop", "replace",
+        "nextfile", "meta.revision",
+        "content", new_meta]);
+
+      //getTime() returns milliseconds...
+      var time = Math.floor(new Date().getTime() / 1000).toString(10);
+      var iv = new jsSHA(time + expected_content).getHash("SHA-256", "BIN").substr(0, 16);
+      var plain_signature = private_key.sign(body, "SHA-256");
+//       //precalculated signature - for your pleasure
+//          Base64.decode("zpQpPcEaYE3p3lmEq0yjzO8anMj61LNZ8kpuSbJhe+pJzA9landp2UqJcN9g/Pwi GBNIGjyVIeIaIK52O/LpA11ge5Hu8epC/UbgH1FlvGCqdaWzwk/XkRs9EymQisnx\nxK3ztOKKtO8ZUHo5dAkdn0RVvwnCJaLUHrI7YVVfkcK/YnliwAzUu4u4joD9ACKe\nu11TwekMnXppI2dlqvz/Qk2J8qqwI5wNGM4S8HzXsxgDH2FqDieZC+gKOMfWdrre\ngTYUP/+wBJId+xxkBjlqe20IuB1w/d7T+cWETnAZUCG3ad9bl/V65SZ1jk8VoUmj\nIq5CtTBFF7NyWzRkVK8V9Q==");
+      var signature = Base64.encode(salsa20.encrypt(plain_signature, shared_secret, iv));
+      var header = netstring(["signedby", "longterm-0:alice@lastpageofthe.net", 
+        "time", time, 
+        "lock", "meta.revision",
+        "enc-algo", "salsa20",
+        "hash-algo", "sha256",
+        "signature", signature]);
+
+     var req = new XMLHttpRequest();
+      req.open('POST', "upload.php", false);
+      //req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+      req.send(header + body);
+
+      document.write("iv: " + Base64.encode(iv) + "<br>\n");
+      document.write("hash: " + new jsSHA(body).getHash("SHA-256", "HEX") + "<br>\n");
+      //document.write("plain signature: " + Base64.encode(plain_signature) + "<br>\n");
+      document.write(header + body + "<br><br>\nresponse:<br>");
+      document.write("status code: " + req.status + "<br>\n" + req.responseText);
+    }
+  </script>
+</html>

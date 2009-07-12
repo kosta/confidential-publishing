@@ -1,0 +1,1 @@
+Hello I am a plaintext to test if salsa20 works as it should. Well, of course you can argue that theres no binary data in here. Of course, theres another test with binary data.

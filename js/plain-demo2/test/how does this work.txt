@@ -1,0 +1,151 @@
+So how does this work?
+
+Everything in here is ultimately protected by your passphrase. Everyone that 
+knows your passphrase has access to all the content stored in here, can
+overwrite, encrypt, decrypt and sign everything. So take good care that your
+passphrase remains secret!
+
+1. Decrypting your private key
+
+  First of all, we use your passphrase to decrypt your private key. This key is
+  stored in <username>/private-keys/. In every directory, there lies around 
+  some metadata. The metadata is used to describe the contents of the folder: 
+  what text and images are stored in there, but also what keys, salt and 
+  subfolders. The metadata is always stored in a file named 'meta'.
+
+  In alice/private-keys, there is only one entry in the meta filename:
+
+  { "type": "key:RSA-2048", "name": "master", "urltrans": "base64|enc:passphrase" }
+
+  This means that this directory contains an RSA key of 2048 bit length, named 
+  "master". This is exactly the key we want. Now we could have a value field 
+  that directly gives us the key, but here, we put it in another file. We can 
+  use the 'url' field to name the file explicitly, but if its not there, we 
+  simply use the name. Here, the file that stores the RSA key is called 
+  'master'. The 'urltrans' field tells us that file file has first been 
+  encrypted using the passphrase, and then encoded in base64. This means we 
+  first need to base64-decode it, and then decrypt it using the passphrase.
+
+  In general, all binary data, be it in files or in metadata needs to be enoded
+  to printable characters. This is usually done using Base64 encoding. After 
+  Base64 encoding, the data only consists of letters, numbers and +/=. However,
+  the data also takes up about 37% more space.
+
+  You can also decode & decrypt the RSA key yourself, by downloading 
+  alice/private-keys/master and running
+  base64 -d master | openssl enc -d -aes-256-cbc -k alice@lastpageofthe.net:sh4dwsMvWhrLghtShldBi6671336 > master.pem
+
+  Note that 'sh4dwsMvWhrLghtShldBi6671336' is your passphrase, salted by your 
+  used id 'alice@lastpageofthe.net'. Your decrypted private key is now stored 
+  in the file 'master.pem'. 
+
+2. Listing your main folder
+
+  Now that we have your private key, we can look what content is stored in your
+  main folder (also called root folder). Just as before, we first look at the
+  meta file stored in alice/meta:
+
+  { "type": "key:AES-256", "name": 0, "scope": "local", "iv": "Sp4JmenrALncqDPNciipiw==",  "valuetrans": "base64|enc:master", "value": "aJWAz9xYKO91bSp3IYL0NMLc8Q/++dfnopK+OuK5bmqVQisFDBPXqjCrE3+Y6V0RjppySzjuFg5Yb/Hgt2luPYd0RC17z1/+78XQ03HsyD7UtbwGuE6me2h9oVwuwZsKdlGAMUq4tGKHGLz8P8PLgHUENNNSkAJIms9YAqFGWIO/OgQjnXRg5R1DFPfGewF/VDTN21Lmk5XWy7nAm1DC9qTMPhhj/VQyJmH8tsR+Qxm3k/Qh0Wa+m71xWeDV+Wor0oeWucyxRugvxRZW7atvLK8W3YNDsR6VUZz8OldqVwJuBVHvAsdgz/MoRLIoqFZJFJV11T7af9jE4DsVnrLMvg=="}
+  { "type": "salt:SHA-1", "value": "6D/Nwq+gS3/5rrBaNV8x0A==", "valuetrans": "base64|enc:0"}
+  { "type": "meta", "valuetrans": "base64|enc:0", "value": "HQ4JIVZm4v2yw+HR0TUbkfUUXMW3nYleJDeypXHuZgGxFTeHqShzOu6GuEzSpRYSCLIKVZHqVfvARt2SrLK1dmIgyNuwNP6qyGTbT8RFHQSUv+pLobkDVQYXyvi0GeScirKbiEAWhgkiDQumyEw9AtRkrmIQO4wwBEsZk9ulKN4i2VwVdcKjg1JEpbs6gYKEict2BVtwHi7L7J0logMB1p+r+KLrKPaAlw1QM6bT1ybIV3JnL2v7swLh6vquhR0wrIQRv+YGLG3qIkOTj85dtI6XzDh2HyECafkRnCxhdA4=" }
+
+2.1 The symmetric key
+
+  Whoa, a lot of stuff in there. Lets go through this line by line.
+  First of all, we have something with type "key:AES-256". This means its a 
+  symmetric key. Symmetric key cryptography is much faster than public (and
+  private) key cryptography. Thats why we first define a symmetric key that
+  is used to decrypt and encrypt everything else. Here, the symmetric key
+  has the name 0. 
+
+  A symmetric key consists of a key and an initialization vector, or iv. The 
+  key must remain secret, but the iv can be public. This is why we left the
+  iv in plaintext, but encrypted the key itself using the private key. This way
+  only someone who has access to your private key can decrypt your data. And
+  thats, hopefully, only you!
+
+  If you want to use your symmetric key, you now need to decrypt it. Note that
+  openssl expects all keys and ivs as hexadecimal, so we will convert it 
+  to make it easier to use.
+
+  First, decode the iv and store it in key0.iv:
+  echo "Sp4JmenrALncqDPNciipiw==" | base64 -d | xxd -g 0 -p -c 256 > key0.iv
+
+  Now, decrypt your key and store it in key0.key
+  echo "aJWAz9xYKO91bSp3IYL0NMLc8Q/++dfnopK+OuK5bmqVQisFDBPXqjCrE3+Y6V0RjppySzjuFg5Yb/Hgt2luPYd0RC17z1/+78XQ03HsyD7UtbwGuE6me2h9oVwuwZsKdlGAMUq4tGKHGLz8P8PLgHUENNNSkAJIms9YAqFGWIO/OgQjnXRg5R1DFPfGewF/VDTN21Lmk5XWy7nAm1DC9qTMPhhj/VQyJmH8tsR+Qxm3k/Qh0Wa+m71xWeDV+Wor0oeWucyxRugvxRZW7atvLK8W3YNDsR6VUZz8OldqVwJuBVHvAsdgz/MoRLIoqFZJFJV11T7af9jE4DsVnrLMvg==" | base64 -d | openssl rsautl -inkey master.pem -decrypt | xxd -g 0 -p -c 256 > key0.key
+
+  Ok, now we have the key necessary to decrypt everything else in this folder.
+  
+  Note: Kosta will decide that the plaintext of key and iv should are 
+  hexadecimal, to make life easier when using openssl.
+
+2.2. The salt
+
+  Lets look at the next entry:
+  { "type": "salt:SHA-1", "value": "6D/Nwq+gS3/5rrBaNV8x0A==", "valuetrans": "base64|enc:0"}
+  "6D/Nwq+gS3/5rrBaNV8x0A=="
+  This specifies a so-called salt. The problem with retrieving encrypted files 
+  is that the file name might give a hint of whats inside. Imagine someone
+  having a file on its webserver called "My Diary". Or, a folder might be used
+  by some application as an address book. Every file contains the encrypted 
+  data of a friend. However, if the files are named "Tim Smith" and 
+  "Jimmy Wu", you are already giving up information that you want to keep 
+  secret. This is where the salt comes in: Using the salt and the content name,
+  we generate a new name thats totally meaningless by itself. For this, we use
+  a cryptographic hash function. By default, SHA-1 is used. We will give an
+  example later.
+
+  So, lets decode & decrypt the salt and store it in salt.raw:
+  echo "6D/Nwq+gS3/5rrBaNV8x0A==" | base64 -d | openssl enc -d -aes-256-cbc -K `cat key0.key` -iv `cat key0.iv` > salt.raw
+
+2.3 More meta? Content!
+
+  The third entry in the meta file is: 
+  { "type": "meta", "valuetrans": "base64|enc:0", "value": "HQ4JIVZm4v2yw+HR0TUbkfUUXMW3nYleJDeypXHuZgGxFTeHqShzOu6GuEzSpRYSCLIKVZHqVfvARt2SrLK1dmIgyNuwNP6qyGTbT8RFHQSUv+pLobkDVQYXyvi0GeScirKbiEAWhgkiDQumyEw9AtRkrmIQO4wwBEsZk9ulKN4i2VwVdcKjg1JEpbs6gYKEict2BVtwHi7L7J0logMB1p+r+KLrKPaAlw1QM6bT1ybIV3JnL2v7swLh6vquhR0wrIQRv+YGLG3qIkOTj85dtI6XzDh2HyECafkRnCxhdA4=" }
+
+  This means that the value of this entry should be treated as more meta-data.
+  However, the meta-data itself is encrypted. We dont want everybody to know 
+  whats in our folder. Again, we first need to base64-decode the data and then
+  decrypt it using key 0:
+
+  echo "HQ4JIVZm4v2yw+HR0TUbkfUUXMW3nYleJDeypXHuZgGxFTeHqShzOu6GuEzSpRYSCLIKVZHqVfvARt2SrLK1dmIgyNuwNP6qyGTbT8RFHQSUv+pLobkDVQYXyvi0GeScirKbiEAWhgkiDQumyEw9AtRkrmIQO4wwBEsZk9ulKN4i2VwVdcKjg1JEpbs6gYKEict2BVtwHi7L7J0logMB1p+r+KLrKPaAlw1QM6bT1ybIV3JnL2v7swLh6vquhR0wrIQRv+YGLG3qIkOTj85dtI6XzDh2HyECafkRnCxhdA4=" | base64 -d | openssl enc -d -aes-256-cbc -K `cat key0.key` -iv `cat key0.iv`
+
+  This gives us:
+  { "type": "content", "content-type": "text/plain", "name": "tie-fighter", "urltrans": "base64|enc:0" }
+  { "type": "content", "content-type": "text/plain", "name": "how does this work", "urltrans": "base64|enc:0" }
+
+  Finally, some content!
+  The content is a text file called tie-fighter. Guess what's in there? (Note: tie 
+  fighters are something from star wars, so any star wars geek will have
+  at least some idea whats inside).
+
+  Now, we dont want any eavesdropper (or the webserver) to know the filename.
+  This is why we did not store a file called "tie-fighter". Instead we used
+  the so-called salted name.
+
+  In order to find the salted name, we take the salt, add the content name and
+  put the result into a cryptographic hash function (SHA-1 being the default):
+
+  cp salt.raw salt.raw.tmp
+  echo -n tie-fighter >> salt.raw.tmp
+  cat salt.raw.tmp | openssl dgst -sha1
+
+  The results in
+  683eeb7c1f296e2ccdb9582363b7b52ffb58ecc4
+
+  Voila! This is our new filename. So lets save the file 
+  alice/683eeb7c1f296e2ccdb9582363b7b52ffb58ecc4
+
+  Note that the "-n" is extremely important. Otherwise, `echo` appends a 
+  newline character, which results in a completely different hash.
+
+  The urltrans property tells us how to transform this file back into 
+  plaintext. Just like above, we need to base64-decode it and decrypt
+  it using key 0:
+  base64 -d 683eeb7c1f296e2ccdb9582363b7b52ffb58ecc4 | openssl enc -d -aes-256-cbc -K `cat key0.key` -iv `cat key0.iv` -out tie-fighter
+
+  This results in the file 'tie-fighter', we can take a look:
+  less tie-fighter
+
+  The same way, the second file "how does this work" can also be decrypted. Can
+  you do it yourself?

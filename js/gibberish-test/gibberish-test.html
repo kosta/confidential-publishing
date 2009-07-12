@@ -1,0 +1,18 @@
+<html>
+<head><title>Test</title>
+<script src="../gibberish-aes/gibberish-aes.js" type="text/javascript"></script>
+<script src="../gibberish-aes/fubby.js" type="text/javascript"></script>
+<script type="text/javascript">
+function clear() { document.getElementById("jsout").firstChild.data = ""; };
+function echo(msg) { document.getElementById("jsout").firstChild.data += msg; };
+function test() {
+clear();
+echo(fubby);
+echo(GibberishAES.enc("Made with Gibberish\n", "password") );
+}
+</script>
+</head>
+<body onload="test()">
+Output: <div id="jsout">js disabled</div>
+</body>
+</html>

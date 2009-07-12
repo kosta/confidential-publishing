@@ -1,0 +1,64 @@
+<html>
+  <head>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="salsa20.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      function run_crypto() {
+        var s = document.form0.indata.value;  
+        for(var i = 0; i < document.form0.transin.length; ++i) 
+          if (document.form0.transin[i].checked) {
+            if ("hex" == document.form0.transin[i].value)
+              s = h2s(s);
+            else if ("base64" == document.form0.transin[i].value)
+              s = Base64.decode(s);
+          }
+
+        var key = h2s(document.form0.key.value);
+        var iv = h2s(document.form0.iv.value);
+        
+        s = salsa20.encrypt(s, key, iv);
+        for(var i = 0; i < document.form0.transout.length; ++i) 
+          if (document.form0.transout[i].checked) {
+            if ("hex" == document.form0.transout[i].value)
+              s = straight_hex(s);
+            else if ("base64" == document.form0.transout[i].value)
+              s = Base64.encode(s);
+          }
+
+        document.form0.outdata.value = s;
+      }
+
+      function h2s(h) {
+        var ret = "";
+        h.replace(/(..)/g,
+          function(s) {
+            ret += String.fromCharCode(parseInt(s, 16));
+          });
+        return ret;
+      }
+
+    </script>
+  </head>
+  <body>
+  <h2>salsa20 de/encryption</h2>
+  <p><a href="http://cr.yp.to/snuffle.html">salsa20</a> is a fast symmertric cipher developed by <a href="http://cr.yp.to/djb.html">Daniel J. Bernstein</a>. On this page, you can find my JavaScript implementation of the salsa20 cipher. Decryption and Encryption are the same operation. I also wrote a <a href="../salsa20-cli.tar.bzip2">command-line client</a>, based on (relatively slow) C code by Daniel J. Bernstein. For faster implementations, visit his <a  href="http://cr.yp.to/snuffle.html">salsa20 homepage</a>.
+  </p>
+  <form name="form0" onSubmit='run_crypto();return false;'>
+      key (hexadecimal): <input name="key" type="text" value="a30b7916eeccf02ea2bb5e8020d5a6a41cad1061589316b70211a734a3e8801c" size=64><br>
+      iv (hexadecimal): <input name="iv" type="text" value="589e86414f0497e2" size=16><br>
+      input is encoded as: <input type="radio" name="transin" value="plain" checked>plain 
+      <input type="radio" name="transin" value="hex">hex 
+      <input type="radio" name="transin" value="base64">base64 <br>
+      encoded output as: <input type="radio" name="transout" value="plain">plain 
+      <input type="radio" name="transout" value="hex">hex 
+      <input type="radio" name="transout" value="base64" checked>base64<br>
+      <input type="button" value="de/encrypt" onClick="run_crypto();"><br>
+      <br>
+      <textarea name="indata" rows=25 cols=80>Enter your text to decrypt/encrypt here</textarea><br>
+      <br>
+      Result:<br>
+      <textarea name="outdata" rows=25 cols=80></textarea>
+    </form>
+  </body>
+</html>

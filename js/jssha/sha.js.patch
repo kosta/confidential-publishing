@@ -1,0 +1,37 @@
+78c78,79
+< 			str += hex_tab.charAt((binarray[i >> 2] >> ((3 - i % 4) * 8 + 4)) & 0xF) + hex_tab.charAt((binarray[i >> 2] >> ((3 - i % 4) * 8)) & 0xF);
+---
+> 			str += hex_tab.charAt((binarray[i >> 2] >> ((3 - i % 4) * 8 + 4)) & 0xF) 
+>            + hex_tab.charAt((binarray[i >> 2] >> ((3 - i % 4) * 8)) & 0xF);
+83a85,103
+>   /*
+>    * Convert an array of big-endian words to an 8bit (binary) string.
+>    *
+>    * @private
+>    * @param {Array} binarray Array of integers to be converted to hexidecimal representation
+>    * @return 8bit binary representation of the parameter in String form
+>    */
+>   var binb2string = function (binarray) {
+>     var str = "";
+> 
+>     for (var i = 0; i < binarray.length; i++)
+>       str += String.fromCharCode((binarray[i] >> 24) & 0xFF)
+>            + String.fromCharCode((binarray[i] >> 16) & 0xFF)
+>            + String.fromCharCode((binarray[i] >> 8) & 0xFF)
+>            + String.fromCharCode(binarray[i] & 0xFF);
+>     
+>     return str;
+>   };
+> 
+708a729,731
+>     case "BIN":
+>       formatFunc = binb2string;
+>       break;
+710c733
+< 			return "FORMAT NOT RECOGNIZED";
+---
+> 			throw "jsSHA.getHash(): FORMAT NOT RECOGNIZED";
+740c763
+< 			return "HASH NOT RECOGNIZED";
+---
+> 			throw "jsSHA.getHash(): HASH NOT RECOGNIZED";

@@ -1,0 +1,87 @@
+<html>
+  <head>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="../jssha/sha.js" type="text/javascript"></script>
+    <script src="../base64/base64.js" type="text/javascript"></script>
+    <script src="../util/util.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/jsbn2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa2.js" type="text/javascript"></script>
+    <script src="../tomwu-rsa/rsa-sign.js" type="text/javascript"></script>
+    <script src="../asn1/asn1.js" type="text/javascript"></script>
+    <script src="../jssha/sha.js" type="text/javascript"></script>
+    <script type="text/javascript">
+
+			var conf = null;
+
+			function start(f) {
+				conf = {count: 10, f: f};
+				document.form0.timings.value = "";
+				document.form0.avg.value = "";
+				window.setTimeout(run, 1);
+			}
+
+			function run() {
+				var before = new Date();
+				conf.f();
+				var after = new Date();
+				document.form0.timings.value += (after-before) + " ";
+
+				if (conf) {
+					conf.count -= 1;
+					if (conf.count > 0)
+						window.setTimeout(run, 1);
+					else {
+						t = document.form0.timings.value.split(" ");
+						var avg = 0;
+						for(var i in t) avg += t[i] / t.length;
+						var stddev = 0;
+						for(var i in t) stddev += (t[i]-avg) * (t[i]-avg) / t.length;
+						stddev = Math.round(Math.sqrt(stddev), 0);
+						document.form0.avg.value = Math.round(avg, 0) + " (" + stddev + ")";
+					}
+				}
+			}
+
+      function hash1000() {
+        return new jsSHA("alice@lastpageofthe.net:Hello SHA!").getHash("SHA-256", "HEX", 1000);
+      }
+
+      function hash200() {
+				return new jsSHA("alice@lastpageofthe.net:Hello SHA!").getHash("SHA-256", "HEX", 200);
+      }
+
+			function sign2048() {
+				var key = RSAKey.new_key_from_openssl("-----BEGIN RSA PRIVATE KEY-----MIIEpAIBAAKCAQEA1lq6C0WYTLjzAV9TLa2U13+8eMlo9nhWCOucRg2Teh724Frm+YtP9eWxkaoqmn/a1zl9JL+hpHZeKraqRUS/RwMIAnLYwbvhsQZN0FO0eT5t/bOWtcoD2PTERDgIsRPO6TP/3O7QGyLJ+K+e+s04yk6yoT0sQEj0MDOvmByFcJo9zYo8sOpnNjM9FOUQsovuWvEXvNbavwSBZGCvw9swmQ5bY1pyUN1vvy06MVS+3B9AVFcv/W/+S0roYrUR8s2EYqous3e5ne0oEWc7Lz3KnqEwYSOZjMgLR9oisZvRzRjSIYlVdR2M/y7buE7CvJj7e2svw4SL2iqxQHlF9VlTFQIDAQABAoIBAQCKV6nFBpihw6gKVbSAQYxTfPxt1Eeq8sVMIowMZkytP3jEGccCfVgQ8rqksXenmSbrSw4qfodbdo2V8ah45kKxGRK9SdP9TT3/G3tzHeLXcWRZneOB1iyfhHF7OdLaPleHCOl0dKjZKp3Bo87uPS8O2rXM/Icnwi3fQixs9tNkdOgqpaTXYZVR60qtODRH6WaqOXtiw0nG2hvvOM3j2I9G3hSaLuBk9fZYygH9DF6n5RF8f/0gaIkgX0kGYoPq60yZ/hKlgn7AWz0d6O1VyO8QhJdhMyVrqyHkryXTlBgJKUW2vdXm34Xu+sKEFt/fLsqnOxcEc8cGrjo98IwyNAYBAoGBAP/eYyYDZXUoGLnDVuxrb5w42Qndx9lpwFzzIZ+MKPjpbtLrBEKYDXF7U+RifAS/qCbWX+4rSus0bXmrEFvAqeb83/iwniyNzW4ZEULGwi/1jXu1fpmViK6ZNd5Zz6gu0E2r/lLSnLD14kPQ5vfiOCsXwBcYYF6v3e1ySulY9n+BAoGBANZ24sWRpTBNJ3e2hEXw1Dh/UA9MV+ppYQ5fiE2gsnurpQH4nwrMBtzegsZJQtP6S3ozVh6G1hx4nYvtrSKGnJgIjEjcZ2Nqw+uRo0VGniiOoUE3JmpYN2GrpsmpZBM3d/gjqxivgenvjEShHCxn6RLVNrHBcJLOnz3uNLEZL52VAoGAYxmYHzX7isfP48rzlLf7z275KOgcKmnaFmYYpLndeKK4yLo7uSs5MbXJhVBbpl8w2nH3T8C20KhKqnAF8vOJGqzgdmq5qJn3cegFlm5y8a5ScRKXiRawjKdMhOUWF5aiGSM/aoamJ6fkTc3QVzvn81DMlmVblfDZrMiymPRa7IECgYAu/RdMgE+4GH94PDYY+N4WjtZks65jfrk0I/xCPd49OGtL1kRKYk9ynxH6Dd0lgqZ83LiWsaZB0K98FBQmB2ZR7TWHVTsVzjOk7mDecc1/R1jPaBzzmeZwcOJ3NrTlfPa9GFuJahLFxaVu9/mrRQ0NAkgchCx9DeZX9FP5JXKITQKBgQD42qC6QaICRBre+zBvQfhcwIYr3DKqy4uUc1gVOoLYTf9Mr7hdZ84goWGfXdNiTTWXE5ZBldrsv++Ih5aPzhVjbJ9WJlqkDSDylIqLZ5o7CcPCAzClZwbf2Ho7Qo4hHwatFDleY7XF4GqVyCBMlZLtBrfSLB7ioc8lqZUaIPhaDw==-----END RSA PRIVATE KEY-----");
+				return key.sign("this is some test content", "SHA-256")
+			}
+			function sign1024() {
+				var key = RSAKey.new_key_from_openssl("-----BEGIN RSA PRIVATE KEY-----MIICXQIBAAKBgQCxoZErKb1KBVh58fBKU5vFTN8YjvPYH2AAb8pxr5KxeF0ZbuFmH4Lmk+3efxCl3gKDKaEWie8wyw8awfFeJp1Co5dt8H6noHV1TSVfjtPdpKWZW1/9jWT6m6Q1MDKp/INbZinnFdT2MPL331w8e1QfqM4R32Wm2EuS6dyZWumHAwIDAQABAoGBAKMcjcVo6pzSE9DGzbQy2lNup15RxrCq/ujnvqpuYvH8aOE15Fx2iylYpZEudQcauove6kFcH/xaOmCDvzSJmNVT2NfrFViTiMqbaH3BCP4gQhYJiVKVH0jdbZg9YnWkQituH+7uGGpGJc4CNx2dUWr4SGgR3AhNNGlKG6Dor5dBAkEA5YrTxEUgSrg/1JJHGf3m7hwGfy24cVwBayfTgZFlf08kKS3hZkL4zDJP3lnJZHUYQCR/cLQY/Jr68B+VoVOnSwJBAMYa+z9G3s74Nb4Nnry3ESIKitSTeszni9gP7xYXJ+iFtHR1RWI4VTv7mQNaWl0iAE5b4I74xbcWEG93K2vJtCkCQQC/xJvm/VldE1FAZnTAYj7r7r3+wlO1YQhOXZd2R+Jj2dp8DLiilpEFB4NyX9DA/JKmA9f0cIHviArdUYXQofLBAkAad7hht+JE3Lyxa7htljffyHDL/fhGMBlrAJX86ZMXaeW2OYTPnp8kqHTFEelI0CYiUfwqneosj/IaMl3GxOghAkB+mKdObpeGza1CvGp5BdXIM+epL3xXklFFN3I94W4pUxxxbYO/4iyBx6esqa7kEhZlss13N0lCVA6pXX6xS657-----END RSA PRIVATE KEY-----");
+				return key.sign("this is some test content", "SHA-256")
+			}
+			function sign766() {
+				var key = RSAKey.new_key_from_openssl("-----BEGIN RSA PRIVATE KEY-----MIIBzwIBAAJiAMvX0HeQUXE7QjjOg7U6RkHVB48c5p3kr6M5Hp/OANYZTZ/0rOtGfKUwAF5hxSiDOzfWY44Bjp0Y2UcPj6mfecr3ftugMmtGxx8kjKIU7G2NF2Av132nARYjrmOpMcSbqa0CAwEAAQJiAJ3Fw6fXPwIaMK5RQWXy3dA0d25QmzrYdw0pt8dOph0QZqGIupI781vTpGVo3TX3JLd39RSVz/mfr8VaW0KMEKHcuIY7uDma6gcKjAs47hbJs7ni0vw9IvX43p1GtivigM0CMQ8Ry11Vma7zCJ9tRFWvcg5VEPGXqBIbOn4Nsbb1bXqehB6eAbn+clvkJvRWBgGiNt8CMQ2G38gWQ+VK0Pzam89dt4h74TlktUzYVtXdtFtauAEzSkawfXRnDH0coJewDjB07PMCMQKSR8BqbeoDgJIrxABXCsBVVanT9hL44HdIAO42XPMSf3r1/VduircRbHA/CZFXy8MCMQKuRBMnNnVuilRSDqbd782An3X8W2HLTgo8Uc35AJZcT9AKkhJLidIRplHpdiZsRbkCMQ6LbcqhZp1WQMA6dIjmqsf0BtHTen+x3YUKycPSFehHIZexZznzsMcI/M/ZPwM5HVQ=-----END RSA PRIVATE KEY-----");
+				return key.sign("this is some test content", "SHA-256")
+			}
+			function sign512() {
+				var key = RSAKey.new_key_from_openssl("-----BEGIN RSA PRIVATE KEY-----MIIBPAIBAAJBANY44sJJXQmU9Jhl77zE/+qptFan1lDHxdGhw2RTJhGpZtmqIkdwP5GgRFE4yXgPmjgBeu3exNE4yvqDOJtRBCMCAwEAAQJBANR4XWgH7bA4PhT9XbdjyNQNd6FPHEDIs4qFH8/crHBsO6hq1PxIHuKiGCn7WOD1qWwH09QsPkAB+GWbj0dkutECIQD7rw5np/0h6Axb372HLflkO9l/lpcGkt1rtrG/l2KCCQIhANnlXYg9ClmM+ypwU1T820VtvRoemjkxDFaxU16Xwm/LAiAolan0/RnMhea4SfP+AGPezefcsyPXY4dg/yzagEbaQQIhAKkSVDT2SCWcQvd3GPIFEY8Zy3WM8VYXPN+30FzBnNlpAiEAnxHTGjHsVYX2n7wQFIoy3T8i4gPZ8RigKnj5IiAbEOY=-----END RSA PRIVATE KEY-----");
+				return key.sign("this is some test content", "SHA-256")
+			}
+    </script>
+  </head>
+  <body>
+	<form name=form0>
+		<a href="javascript:start(function() {})">start empty</a><br>
+		<a href="javascript:start(sign2048)">start sign 2048</a><br>
+		<a href="javascript:start(sign1024)">start sign 1024</a><br>
+		<a href="javascript:start(sign766)">start sign 766</a><br>
+		<a href="javascript:start(sign512)">start sign 512</a><br>
+		<a href="javascript:start(hash1000)">start hash 1000</a><br>
+		<a href="javascript:start(hash200)">start hash 200</a><br>
+		<br>
+		timings: <input type="text" name=timings size=30></input><br>
+		average (stddev): <input type="text" name=avg></input><br>
+	</form>
+  </body>
+</html>

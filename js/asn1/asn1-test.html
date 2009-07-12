@@ -1,0 +1,59 @@
+<html>
+<head><title>Test</title>
+<script src="../base64/base64.js" type="text/javascript"></script>
+<script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
+<script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
+<script src="asn1.js" type="text/javascript"></script>
+<script src="../util/util.js" type="text/javascript"></script>
+<script src="../jssha/sha.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+function parse_openssl_private_key(input) {
+	var fields = ["version", "modulus", "e", 
+                "private_exponent", "prime1", "prime2", 
+               "exponent1", "exponent2", "coefficient"];
+	return ASN1.parse(Base64.decode(input), fields);
+};
+
+function parse_openssl_public_key(input) {
+	return ASN1.parse(Base64.decode(input), ["algorithm", "null", "modulus", "exponent"]);
+};
+
+function test() {
+	echo_clear();
+	
+	var private_key_str = "MIIBPAIBAAJBANY44sJJXQmU9Jhl77zE/+qptFan1lDHxdGhw2RTJhGpZtmqIkdw"
+                  + "P5GgRFE4yXgPmjgBeu3exNE4yvqDOJtRBCMCAwEAAQJBANR4XWgH7bA4PhT9Xbdj"
+                  + "yNQNd6FPHEDIs4qFH8/crHBsO6hq1PxIHuKiGCn7WOD1qWwH09QsPkAB+GWbj0dk"
+                  + "utECIQD7rw5np/0h6Axb372HLflkO9l/lpcGkt1rtrG/l2KCCQIhANnlXYg9ClmM"
+                  + "+ypwU1T820VtvRoemjkxDFaxU16Xwm/LAiAolan0/RnMhea4SfP+AGPezefcsyPX"
+                  + "Y4dg/yzagEbaQQIhAKkSVDT2SCWcQvd3GPIFEY8Zy3WM8VYXPN+30FzBnNlpAiEA"
+                  + "nxHTGjHsVYX2n7wQFIoy3T8i4gPZ8RigKnj5IiAbEOY=";
+	
+	var public_key_str = "-----BEGIN PUBLIC KEY-----\n"
+                     + "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANY44sJJXQmU9Jhl77zE/+qptFan1lDH\n"
+                     + "xdGhw2RTJhGpZtmqIkdwP5GgRFE4yXgPmjgBeu3exNE4yvqDOJtRBCMCAwEAAQ==\n"
+                     + "-----END PUBLIC KEY-----\n";
+
+	var private_key = RSAKey.new_private_key_from_openssl(private_key_str);
+	var public_key = RSAKey.new_public_key_from_openssl(public_key_str);
+
+	var private_pem = private_key.to_openssl();
+	echo_append(private_pem);
+	
+  var public_pem = public_key.to_openssl();
+	echo_append("");
+	var lines = public_pem.split("\n");
+	for(var line in lines)
+		echo_append(lines[line]);
+
+  echo_append(new jsSHA(public_key_str).getHash("SHA-1", "HEX"));
+  echo_append(new jsSHA(public_pem).getHash("SHA-1", "HEX"));
+}
+
+</script>
+</head>
+<body onload="test()">
+Output: <div id="jsout">js disabled</div>
+</body>
+</html>

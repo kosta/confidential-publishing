@@ -1,0 +1,136 @@
+<html>
+	<head>
+		<title>Kostas Demo Page</title>
+	<script src="../util/util.js" type="text/javascript"></script>
+	<script src="../base64/base64.js" type="text/javascript"></script>
+	<script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
+	<script src="../tomwu-rsa/jsbn2.js" type="text/javascript"></script>
+	<script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
+	<script src="../tomwu-rsa/rsa2.js" type="text/javascript"></script>
+	<script src="../asn1/asn1.js" type="text/javascript"></script>
+	<script src="../gibberish-aes/gibberish-aes.js" type="text/javascript"></script>
+	<script type="text/javascript">
+		function llink(/* String */ s) {
+			var a = document.createElement("a");
+			var href = document.createAttribute("href");
+			href.nodeValue = s;
+			a.setAttributeNode(href);
+			a.appendChild(document.createTextNode(s));
+			return a;
+		}
+
+		function tt(/* String */ s) {
+			var tt = document.createElement("tt");
+			tt.appendChild(document.createTextNode(s));
+			return tt;
+		};
+
+		function add_instructions() {
+			//today, im writing UGLY code (dont worry its just this function)
+			var ins = document.getElementById("instructions");
+			while(ins.childNodes.length)
+				ins.removeChild(ins.firstChild)
+
+			var h2 = document.createElement("h2");
+			h2.appendChild(document.createTextNode("Now do it yourself!"));
+			ins.appendChild(h2);
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createTextNode("1. download the files "));
+			ins.appendChild(llink("key-2048.pem.aes.base64"));
+			ins.appendChild(document.createTextNode(", "));
+			ins.appendChild(llink("random-aes.iv"));
+			ins.appendChild(document.createTextNode(", "));
+			ins.appendChild(llink("random-aes.key.enc.base64"));
+			ins.appendChild(document.createTextNode(", "));
+			ins.appendChild(llink("ciphertext"));
+			ins.appendChild(document.createTextNode("."));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createTextNode("2. using your passphrase, decrypt the RSA private key:"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(tt(" base64 -d key-2048.pem.aes.base64 | openssl enc -d -aes-256-cbc -k 4klaus -out key-2048.pem"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createTextNode("3. using the RSA private key, decrypt the AES key:"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(tt("  base64 -d random-aes.key.enc.base64 | openssl rsautl -decrypt -inkey key-2048.pem -out random-aes.key"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createTextNode("4. use the AES key and iv to decrypt the ciphertext:"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(tt(" base64 -d ciphertext | openssl enc -d -aes-256-cbc -K `cat random-aes.key` -iv `cat random-aes.iv` -out plaintext"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createTextNode("5. never eat again after seeing the plaintext:"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(document.createElement("br"));
+			ins.appendChild(tt(" less plaintext"));
+		}		
+
+	function run() {
+			echo_clear();
+			echo_append("button clicked... please wait");
+			document.demo1.plaintext.value = "";
+			var loader = new Fileloader(["key-2048.pem.aes.base64", 
+			                             "random-aes.iv",
+			                             "random-aes.key.enc.base64",
+			                             "ciphertext"],
+			                            function(files) {
+				document.demo1.plaintext.value = "";
+				echo_append("decrypting private key using the passphrase...")
+				//document.demo1.log.value += "decrypting private key using the passphrase...\n";
+				var private_openssl_key_str = GibberishAES.dec(files["key-2048.pem.aes.base64"], 		document.demo1.passphrase.value);
+				//document.demo1.plaintext.value = private_openssl_key_str;
+				echo_append("decrypting AES key using the private key...");
+				//document.demo1.log.value += "decrypting AES key using the private key...\n";
+				var private_key = RSAKey.new_private_key_from_openssl(private_openssl_key_str);
+				var aes_key_enc = parseBigInt(Base64.decode(files["random-aes.key.enc.base64"]), 256)
+				var aes_key = GibberishAES.h2a(pkcs1unpad2(
+						private_key.doPrivate(aes_key_enc), 
+						(private_key.n.bitLength()+7)>>3));
+				var aes_iv = GibberishAES.h2a(files["random-aes.iv"]);
+
+				/*
+				//kosta doesnt cheat, he just checks the result :)
+				var true_key = "0b1dd998223174ddcb6952d62e2bd885dbee7e1f1392948725cb6eb48533ceb9",
+					true_iv = "4a9e0999e9eb00b9dca833cd7228a98b";
+				echo_append("aes key/iv correct: " + (straight_hex(aes_key) == true_key) 
+				            + " / " + (straight_hex(aes_iv) == true_iv))
+
+				var true_cs = "0GnIQyRD+YOt9kN4PqQMwT1L1nRG";
+				if (files["ciphertext"].substring(0, true_cs.length) != true_cs) {
+					echo_append("WRONG ciphertext. clear your caches and try again... :(");
+					document.demo1.plaintext.value = files.ciphertext;
+					return;
+				};
+				*/
+				
+				echo_append("decrypting ciphertext using aes iv and decrypted aes key...");
+				//aes decrypt, todo: make this SALTED. requires openssl patch...
+				document.demo1.plaintext.value = GibberishAES.rawDecrypt(GibberishAES.Base64.decode(files["ciphertext"]), aes_key, aes_iv);
+								
+				echo_append("done");
+
+				add_instructions();
+			});
+		};
+
+	</script>
+	</head>
+	<body>
+		<form name="demo1" onSubmit='run();return false;'>
+			Your passphrase: <input name="passphrase" type="text" value="" size=40>
+			<input type="button" value="decrypt" onClick="run();">
+			<div id=jsout width=400></div>
+			<!--<textarea name="log" rows=4 cols=80></textarea>-->
+			<hr>
+			Plaintext: <br>
+			<textarea name="plaintext" rows=26 cols=51></textarea>
+			<hr>
+			<div id=instructions width=400></div>
+		</form>
+	</body>
+</html>

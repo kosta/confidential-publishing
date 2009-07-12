@@ -1,0 +1,29 @@
+<html>
+<head><title>Test</title>
+<script src="../base64/base64.js" type="text/javascript"></script>
+<script src="../util/util.js" type="text/javascript"></script>
+<script src="names.js" type="text/javascript"></script>
+<script src="names-lib.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+function test() {
+	var digest = "";
+	//fill with random data
+	for(var i=0; i < 20; ++i) //20 byte = 160 bit
+		digest += String.fromCharCode(Math.floor(Math.random() * 256) & 0xFF);
+
+	echo_clear();
+	echo_append(names.male.length + " male first names");
+	echo_append(names.female.length + " female first names");
+	echo_append(names.last.length + " last names");
+	echo_append("");
+	echo_append("digest: " + straight_hex(digest));
+	echo_append("names: " + names.get_names_from_digest(digest));
+}
+
+</script>
+</head>
+<body onload="test()">
+Output: <div id="jsout">js disabled</div>
+</body>
+</html>

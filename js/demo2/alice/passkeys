@@ -1,0 +1,2 @@
+{"type":"signature","urltrans":"base64","signedby":"longterm-0"}
+{"type":"passkey","name":"passkey-main","enc":"AES-256","hash":"SHA-256","iterations":1000,"salt":"SHA-1"}
