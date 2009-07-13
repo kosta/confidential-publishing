@@ -16,7 +16,7 @@ most likely steps of a new user:
   //-->
 <html>
   <head>
-    <title>Add new user</title>
+    <title>Add new user<title>
   </head>
   <body>
     <form name="userdetails">
@@ -32,7 +32,7 @@ most likely steps of a new user:
           <td>passphrase 'main':<br>
           </td>
           <td>
-            <input name="passphrase" type="password" value="sh4dwsMvWhrLghtShldBi6671336" size=40>
+            <input name="user" type="password" value="sh4dwsMvWhrLghtShldBi6671336" size=40>
           </td>
         </tr>
         <tr>
@@ -73,132 +73,21 @@ oWGfXdNiTTWXE5ZBldrsv++Ih5aPzhVjbJ9WJlqkDSDylIqLZ5o7CcPCAzClZwbf
         </tr>
       </table>
     </form>
-    <div id="jsout" style="font-family: monospace; font-size: small; vertical-align: bottom; clear: both;">
-      Log:<br>
-    </div>
   </body>
-  <script src="../base64/base64.js" type="text/javascript"></script>
-  <script src="../gibberish-aes/gibberish-aes.js" type="text/javascript"></script>
-  <script src="../json2/json2.js" type="text/javascript"></script>
-  <script src="../jssha/sha.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/jsbn.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/jsbn2.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/rsa.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/rsa2.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/rsa-sign.js" type="text/javascript"></script>
-  <script src="../asn1/asn1.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/prng4.js" type="text/javascript"></script>
-  <script src="../tomwu-rsa/rng.js" type="text/javascript"></script>
-  <script src="../cryptomnemonics/names.js" type="text/javascript"></script>
-  <script src="../cryptomnemonics/names-lib.js" type="text/javascript"></script>
-  <script src="../util/util.js" type="text/javascript"></script>
-  <script src="../salsa20/salsa20.js" type="text/javascript"></script>
-  <script src="lib.js" type="text/javascript"></script>
   <script ype="text/javascript">
-
-function submit_clicked() {
-  var path = window.location.pathname;
-  path = path.substr(0, path.lastIndexOf("/")+1);
-  userinfo = new UserInfo(document.userdetails.username.value, 
-    path);
-  var rng = userinfo.rng;
-
-  /* get server public key: /public-key.json */
-  /* generate user public key, encrypt it with server public key, send it to server */
-  /* receive server shared secret, encrypted with own public key */
-  //todo: implement all of the above
-  var shared_secret = "abcdabcdabcdabcdabcdabcdabcdabcd";
-  
-  /*  (theoretically optional): upload root folder, passkey file, 
-      passkey-secrets, private-keys, public-keys folder */
-
-  /* create private key */
-  //"secrets" folder
-  var secrets_folder = new Folder("secrets", userinfo, userinfo.baseurl + "secrets.meta");
-  secrets_folder.defines_global_keys = true;
-  secrets_folder.crypto_context.signature.by = "longterm-0";
-  secrets_folder.crypto_context.encrypted_by["passkey-secret-main-0"] = straight_hex(rng.stringOfLength(16));
-  var longterm_0 = make_key({name: "longterm-0", 
-      type: "key:RSA",
-      value: document.userdetails.userkey.value}, 
-    secrets_folder, secrets_folder.crypto_context);
-  secrets_folder.add_key(longterm_0);
-  userinfo.signing_key = longterm_0;
-
-  /* create public key */
-  var public_key_folder = new Folder("public-keys", userinfo, userinfo.baseurl + "public-keys.meta");
-  public_key_folder.defines_user_public_keys = true;
-  var now = new Date();
-  var five_years_from_now = new Date(now.getTime())
-  five_years_from_now.setUTCFullYear(five_years_from_now.getUTCFullYear() +5);
-  longterm_0_public = make_key({name: longterm_0.name,
-    type: "key:" + longterm_0.type,
-    value: longterm_0.key.to_openssl_public_key(),
-    validfrom: now.toGMTString(),
-    validto: five_years_from_now.toGMTString()},
-    public_key_folder, new CryptoContext())
-  longterm_0_public.crypto_context.signature.by = "longterm-0";
-  public_key_folder.add_key(longterm_0_public);
-
-  /* upload "/passkeys", and passkey-secret */
-  var passkeys = 
-    JSON.stringify({type: "signature", urltrans: "base64", signedby: "longterm-0"}) + "\n" +
-    JSON.stringify({type: "passkey", name: "passkey-main", 
-    enc: "AES-256", hash: "SHA-256", iterations: 1000, salt: "SHA-1"}) + "\n";
-  var passkey = make_key({"name": "passkey-main",
-      /* enc algorithm */ type: "key:AES-256",
-      /* key */ "value": new jsSHA(userinfo.userid + ":" + document.userdetails.passphrase.value).getHash("SHA-256", "BIN", 1000)
-    });
-  var passkey_filename = new jsSHA("passkey-secrets:" + passkey.key).getHash("SHA-1", "HEX");
-  var passkey_signature_url = new jsSHA("passkey-signature:" + passkey.key).getHash("SHA-1", "HEX");
-  //everythings in userinfo.keys!
-  userinfo.keys[passkey.name] = passkey;
-  
-  var passkey_folder = new Folder("passkeys", userinfo, userinfo.baseurl + passkey_filename);
-  passkey_folder.compact = [{name: "iv", size: 16}, 
-   /* {name: "rev", size: 4}, {name: "sig", size: 256}, */
-    {name: "content", size: "rest"}];
-  passkey_folder.crypto_context.encrypted_by["passkey-main"] =
-    straight_hex(rng.stringOfLength(16));
-  passkey_folder.crypto_context.signature.by = "longterm-0";
-  passkey_folder.crypto_context.signature.url = passkey_signature_url;
-  passkey_folder.allow_global_keys = true;
-  var passkey_secret_0 = make_key({type: "key:AES-256", 
-      name: "passkey-secret-main-0", 
-      value: rng.stringOfLength(32)}, 
-    passkey_folder, passkey_folder.crypto_context);
-  passkey_folder.add_key(passkey_secret_0);
-
-  //todo: add "private keys" folder to userinfo.filetree 
-  //encrypted by "passkey-secret-main-0"
-  userinfo.filetree = new Folder("", userinfo, userinfo.baseurl + "meta");
-  //root is NOT encrypted by default!
-  //userinfo.filetree.crypto_context.encrypted_by["passkey-secret-main-0"] =
-  //  rng.stringOfLength(16);
-  userinfo.filetree.crypto_context.signature.by = "longterm-0";
-
-  var public_key_meta = public_key_folder.to_meta();
-  echo_append(public_key_meta);
-  var root_meta = userinfo.filetree.to_meta();
-  var root_sig = Base64.encode(longterm_0.sign(root_meta));
-  var passkey_folder_plainsrc = passkey_folder.to_meta();
-  var passkey_folder_compact = passkey_folder.compact_meta(passkey_folder_plainsrc);
-  var passkey_folder_sig = Base64.encode(longterm_0.sign(passkey_folder_plainsrc));
-
-  var msg = [
-    //public keys are self-signed
-    {url: "public-keys", op: "new", content: public_key_meta},
-
-    {url: "meta", op: "new", content: root_meta},
-    {url: "meta.signature", op: "new", content: root_sig},
-
-    {url: "passkeys", op: "new", content: passkeys},
-    {url: "passkeys.signature", op: "new", content: Base64.encode(longterm_0.sign(passkeys))},
-
-    {url: passkey_folder.get_url(), op: "new", content: passkey_folder_compact},
-    {url: passkey_signature_url, op: "new", content: passkey_folder_sig}];
-
-  upload("meta", msg);
-}
+    function submit_clicked() {
+      /* get server public key: /public-key.json */
+      /* generate user public key, encrypt it with server public key, send it to server */
+      /* receive server shared secret, encrypted with own public key */
+      //todo: implement all of the above
+      var shared_secret = "abcdabcdabcdabcdabcdabcdabcdabcd";
+      /*  (theoretically optional): upload root folder, passkey file, 
+          passkey-secrets, private-keys, public-keys folder */
+      var passkeys = JSON.stringify({type: "passkey", name: "main", 
+        enc: "AES-256", hash: "SHA-256", iterations: 1000, salt: "SHA-1"});
+      rng = new SecureRandom();
+      var passkey_secret_0 = rng.stringOfLength(32);
+      var passkey_folder = new Folder();
+    }
   </script>
 </html>

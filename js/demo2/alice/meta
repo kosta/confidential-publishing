@@ -1,1 +1,5 @@
-{"type":"signature","urltrans":"base64","signedby":"longterm-0"}
+{ "type": "key:AES", "name": "0", "scope": "local", "valuetrans": "base64|enc:passkey:master:b419b73f27f8aec43de2cb345c86cdce", "value": "9sZTyfgG+2tRqoW+Z4Y+01z3/MQjbPJsGblcBL9goizG32qz92pRtfuw93cDjWiX" }
+{ "type": "salt:SHA-1", "valuetrans": "base64|enc:0:5f33cca0a3cf76ff34820ce633ac26b7", "value": "NpDLkamIjI4mBPzgEBaugQ==" }
+{"type":"signature","urltrans":"base64","signedby":"master"}
+{"type":"folder","name":"files"}{ "type": "meta", "valuetrans": "base64|enc:0:34c4bd3f4ab8fe53b88f7679c0c1a52f", "value": "FVqCAVeMMMkKfA0tjDgAmUJExlKcu/mv1+hQJanaEd0Iwq62NvQ9hol8SigaU8AeZascAfXmrSSlvtYFQ5HPXv+RT1rYP4Fx+HS+k+SIVWlv5y/l4DT6lHL+MNMtdAaNXobMsbREDIePpMbKfQfi9fUqmQtL89Bbt+FeQtbd4x0U6ABgh/0mlzUmKIl5pvOZaXkc8SbPBFlmaJF2TvgT5JjsGvWZ5ZvgDVadNVnu003bTXJfqd7KvQn3olCKQEMcMrNPqeq541NhLPvW0jymRA==" }
+{ "type": "meta", "valuetrans": "base64|enc:0:640e62320b354df88de474d490da09c7", "value": "xZaKtW4WYeGrdrCnaLTx2nxK1sMWE2m99LgIBl1/fUmRDvB7yKdBo9rliLYmySKoPsD5eRLLl8wU730Zxn0IlxRDpVDhwRQFuBDyIhIqKR+znP3YS9V08M8hwNLyqUrWWZ7iCwIUYqJAKV/gOy+tVPzWwUXDNoiOtA7PQiGbsxSCPh3kqUIXaZBSVb9qR15YxIK7WyJWJXNiiWNTDNGhPQ==" }

@@ -1,0 +1,4 @@
+{ "type": "key:AES", "name": "0", "scope": "local", "valuetrans": "base64|enc:passkey:master:1bfc775b37dde8ea", "value": "HfmMNvuodFXXXEiz2u2Z24FiyE5XtCWpK+/kZQNQ6BYFz/MxgpBzH7PFKLCnCt1r" }
+{ "type": "salt:SHA-1", "valuetrans": "base64|enc:0:f117e5dc5742a60d", "value": "Dnh/xo3KrTX5FLu8VQV6Drent4dPijCRCnvUFNVRR0FBYPs0ZKVXgW9W7fHW/9DD" }
+{"type":"signature","urltrans":"base64","signedby":"master"}
+{ "type": "meta", "valuetrans": "base64|enc:0:d35d421df7eaeea1", "value": "fl4DNBBhiVO0yfK+SLr44T7Ug8Qv4tEh+fOKK28dOxVC7oPLiKbDwqpxFLQphlmxxqT2mcrbSxwPqc/0ias70UBrKLL5nYcCQAGqFrB8V35iOUZH/7beaVG0byhdoMjw6SlCAsWVM5s2phsVdIILVt9c519t4EITowSBC/qYMZNcmQQ28C7/tya401rGhgCve/yJnMCwHaAQHgoW4YnyKUZgVrcu6hr27uOl/QEpI4M=" }

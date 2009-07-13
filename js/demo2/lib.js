@@ -82,7 +82,7 @@ CryptoContext.prototype.apply_meta = function(meta) {
 
 CryptoContext.prototype.get_trans = function(new_ivs) {
   //todo: when to write keyname, when keyid?
-  var random = userinfo.rng;
+  var random = new SecureRandom();
   var trans = [];
   for(var i in this.encrypted_by) {
     if (new_ivs)
@@ -101,32 +101,25 @@ CryptoContext.prototype.get_trans = function(new_ivs) {
   }
 };
 
-CryptoContext.prototype.get_enc_value = function(value, folder) {
+CryptoContext.prototype.get_b64_enc_value = function(value, folder) {
   var enc = [];
   for(var i in this.encrypted_by) {
     var key = userinfo.get_key(i, folder);
     if (!key)
       throw "Error: cannot encrypt: missing key: " + i;
-    //todo: internally use a 8bit binary IV instead of ASCII hex?
-    enc.push(key.encrypt(value, this.encrypted_by[i]));
+    //todo: maybe we should internally use a 8bit binary IV instead of ASCII hex?
+    enc.push(Base64.encode(key.encrypt(value, this.encrypted_by[i]), {dontbreak: true}));
   }
   for(var i in this.encrypted_by_passkey) {
     if (i != userinfo.passkey.name)
       throw "Error: cannot encrypt: missing passkey: " + i;
-    enc.push(userinfo.passkey.encrypt(value, this.encrypted_by_passkey[i]));
+    enc.push(Base64.encode(userinfo.passkey.encrypt(value, this.encrypted_by_passkey[i]), {dontbreak: true}));
   }
-  return enc;
-}
-
-CryptoContext.prototype.get_b64_enc_value = function(value, folder) {
-  enc = this.get_enc_value(value, folder);
-  for(var i = 0; i < enc.length; ++i)
-    enc[i] = Base64.encode(enc[i], {dontbreak: true});
   switch(enc.length) {
     case 0: return value;
     case 1: return enc[0];
     default: return enc;
-  }  
+  }
 };
 
 CryptoContext.prototype.get_url = function(meta, folder) {
@@ -157,6 +150,7 @@ CryptoContext.prototype.get_url = function(meta, folder) {
   return plainurl;
 }
 
+
 function Content(meta, crypto_context, folder) {
   this.name = meta.name;
   this.meta = meta;
@@ -186,7 +180,6 @@ function Folder(name, user, url) {
   this.untransformed = [];
   this.keys = {};
   this.defines_global_keys = {}; //format: name -> true
-  this.defines_public_keys = {}; //same
   this.salt = null;
   this.crypto_context = new CryptoContext();
 };
@@ -208,12 +201,6 @@ Folder.prototype.fetch_and_parse = function() {
   this.fetched_and_parsed = true;
   var meta = fetch(this.get_url());
   this.src_meta = meta;
-  if (this.urltrans) {
-    untrans = untransform_pair(meta, this.urltrans, this, "folder", this.crypto_context);
-    meta = untrans[0];
-    if (untrans[1].length)
-      throw "Folder.fetch_and_parse(): could not untransform: " + untrans[1];
-  }
   process_meta(meta, this, this.crypto_context);
   //verify folder signature 
   if (this.crypto_context.signature.by) {
@@ -284,195 +271,23 @@ Folder.prototype.add_content = function(content) {
   this.user.namedpaths[content.namedpath] = content;
 };
 
-// function add_key(key, folder) {
-//   //todo: add keys of different users
-//   if (key.localscope) {
-//     if (folder.keys[key.name])
-//       throw "add_key: key already exists in folder: " + key.name;
-//     folder.keys[key.name] = key;
-//   } else {
-//     if (userinfo.keys[key.name])
-//       throw "add_key: key already exists for user: " + key.name;
-//     userinfo.keys[key.name] = key;
-//   }
-// };
-
-Folder.prototype.add_key = function(key) {
-  var keys;
-  if ("local" == key.localscope) {
-    keys = this.keys;
-    if (keys[key.name])
-      throw "Folder.add_key(): key already exists with name " + key.name;
-  }
-  else {
-    if (this.defines_global_keys ||
-      //todo: check if key belongs to user
-      (this.defines_user_public_keys && key.public)
-    ) {
-      var defines;
-      if (key.public) {
-        keys = userinfo.public_keys
-        defines = this.defines_public_keys;
-      } else {
-        keys = userinfo.keys;
-        defines = this.defines_global_keys;
-      }
-      if (keys[key.name])
-        throw "Folder.add_key(): key already exists with name " + key.name;
-      defines[key.name] = true;
-    } else {
-      throw("Folder.add_key(): ignoring global key '" + key.name + "' from folder which does not allow it");
-    }
-  }
-  keys[key.name] = key;
-}
-
 Folder.prototype.to_subfolder_meta = function() {
   var meta = {type: "folder", name: this.name};
   if (this.explicit_url)
     meta.url = this.get_url();
-  if (this.compact) {
-    meta.trans = "base64|compact";
-    for(var i = 0; i < this.compact.length; ++i) {
-      var t = this.compact[i];
-      meta.trans += "/" + t.op
-        + (t.key ? ("/" + t.key) : "")
-        + "/" + t.size;
-    }
-  }
   var s = JSON.stringify(meta);
   echo_append("to_subfolder_meta(): " + s);
   if (this.crypto_context.get_trans() != "base64") { //encrypted
-    var cc = clone(this.crypto_context);
-    s = '{ "type": "meta", '
-      + '"valuetrans": "' + cc.get_trans(true) + '", '
-      + '"value": "' + cc.get_b64_enc_value(s, this.up) + '" }\n';
-  }
+      var cc = clone(this.crypto_context);
+      s = '{ "type": "meta", '
+        + '"valuetrans": "' + cc.get_trans(true) + '", '
+        + '"value": "' + cc.get_b64_enc_value(s, this.up) + '" }\n';
+    }
   echo_append("to_subfolder_meta(): " + s);
   return s;
 }
 
-function get_first(obj) {
-  for(var i in obj)
-    return [i, obj[i]];
-  return null;
-}
-
-uncompact_meta = function(meta, compact, folder) {
-  var iv, content;
-  var idx = 0;
-  for(var i = 0; i < compact.length; ++i) {
-    var op = compact[i];
-    switch(op.name) { 
-      case "iv":
-        if ("rest" == op.size)
-          iv = meta.substr(idx);
-        else
-          iv = meta.substr(idx, idx+op.size);
-        idx += iv.length;
-        //stupid hex convention, should change it :(
-        iv = straight_hex(iv);
-        break;
-//       case "rev":
-//         if ("rest" == op.size)
-//           rev = meta.substr(idx);
-//         else
-//           rev = meta.substr(idx, idx+op.size);
-//         idx += rev.length;
-//         break;
-      case "content":
-        if ("rest" == op.size)
-          content = meta.substr(idx);
-        else
-          content = meta.substr(idx, idx+op.size);
-        idx += content.length;
-        //much better: key to encrypt with is embedded right here
-        if (op.key) {
-          var key = userinfo.get_key(op.key, folder);
-          content = key.decrypt(content, iv);
-        }
-        break;
-      default:
-        throw "Folder.uncompact_meta: unknown op: " + op.name;
-    }
-  }
-  return content;
-};
-
-/* correct usage:
-  var meta = folder.to_meta(true);
-  var msg = [{url: folder.get_url(), op: "replace", content: folder.compact(meta)}];
-  if (folder.crypto_context.signature.by)
-    msg.push({url: folder.crypto_context.get_url(), op: "replace", 
-      content: Base64.encode(userinfo.get_signing_key.sign(meta));})
-  upload(msg);
-*/
-Folder.prototype.compact_meta = function(meta) {
-  var cc = clone(this.crypto_context);
-  //folder can only have max. EITHER ONE encrypted_by or encrypted_by_passkey,
-  //only keys can be encrypted by multiple keys
-  var trans = cc.get_trans(true);
-  if (trans instanceof Array)
-    throw "Folder.compact_meta(): Folder encrypted with multiple keys";
-  var s = "";
-  //todo: if encrypted by folder key, make sure to use the parent folders key!
-  var content = cc.get_enc_value(meta, this);
-  //todo: different iv lengths
-  var iv = "\0\0\0\0" + "\0\0\0\0" + "\0\0\0\0" + "\0\0\0\0";
-  if (trans != "base64")
-    var iv = h2s((get_first(cc.encrypted_by) 
-      || get_first(cc.encrypted_by_passkey))[1]);
-  if (cc.encrypted_by.length)
-    for(var j in cc.encrypted_by)
-      iv = h2s(cc.encrypted_by[j]);
-  if (cc.encrypted_by_passkey.length)
-    for(var j in cc.encrypted_by_passkey)
-      iv = h2s(cc.encrypted_by_passkey[j]);
-  //todo: different content lenghts
-  var rev = this.revision || "";
-  while(rev.length < 4)
-    rev = "\0"+rev;
-/*  var sig = "";
-  if (cc.signature.by)
-    sig = userinfo.get_key(cc.signature.by, this).sign(iv + rev + content);*/
-  for(var i = 0; i < this.compact.length; ++i) {
-    var op = this.compact[i];
-    if ("rest" == op.size && i != this.compact.length-1) 
-      throw "Folder.compact_meta(): 'rest' size not last size";
-    switch(op.name) {
-      case "iv": 
-        if (op.size != iv.length && op.size != "rest") 
-          throw "Folder.compact_meta(): iv size mismatch: " 
-            + iv.length + "/" + op.size;
-        s += iv; 
-        break;
-      case "rev": 
-        if (op.size != rev.length && op.size != "rest")
-          throw "Folder.compact_meta(): rev size mismatch: " 
-            + rev.length + "/" + op.size;
-        s += rev; 
-        break;
-//       case "sig": 
-//         if (op.size != sig.length && op.size != "rest")
-//           throw "Folder.compact_meta(): signature size mismatch: "
-//             + sig.length + "/" + op.size;
-//         s += sig; 
-//         break;
-      case "content": 
-        if (op.size != content.length && op.size != "rest")
-          throw "Folder.compact_meta(): content size mismatch: "
-            + content.length + "/" + op.size;
-        s += content; 
-        break
-      default:
-        throw "Folder.compact_meta(): unknown op: '" + op + "'";
-    }
-  }
-  return Base64.encode(s, {dontbreak: true});
-};
-
-Folder.prototype.to_meta = function(ignore_folder_enc) {
-  //todo: dont ignore 'ignore_folder_enc'
+Folder.prototype.to_meta = function() {
   /*
     First local key (must be value-based, not url-based),
     so that we can decode everything,
@@ -485,7 +300,6 @@ Folder.prototype.to_meta = function(ignore_folder_enc) {
   //todo: handle untransformed
   //todo: dont barf if we cant encrypt everything
   //todo: anyway, we need some other way to _manipulate_ meta
-
   var s = "";
   //local key definitions
   for(var i in this.keys) {
@@ -516,21 +330,6 @@ Folder.prototype.to_meta = function(ignore_folder_enc) {
       scope: "global",
       valuetrans: cc.get_trans(true),
       value: cc.get_b64_enc_value(key.get_value(), this) }
-    s += JSON.stringify(obj) + "\n";
-  }
-  for(var i in this.defines_public_keys) {
-    //todo: encrypted public keys...
-    //todo: use signature etc. from context...
-    var key = userinfo.public_keys[i];
-    var signing_key = userinfo.keys[i];
-    var obj = {type: "key:" + key.type,
-      name: key.name,
-      value: key.key.to_openssl_public_key(),
-      validfrom: new Date(key.validfrom).toGMTString(),
-      validto: new Date(key.validto).toGMTString(),
-      signaturetrans: "base64"};
-    obj.signature = Base64.encode(signing_key.sign(
-      obj.validfrom + "|" + obj.validto + "|" + obj.value));
     s += JSON.stringify(obj) + "\n";
   }
   //signature - add it wether it is valid or not
@@ -578,39 +377,25 @@ function UserInfo(loginname, baseurl) {
   if (loginname.indexOf("@") == -1) {
     //append domain name to get user id
     this.username = loginname;
-    this.userid = loginname + "@" + window.location.hostname;
+    this.userid = loginname + "@" + window.location.domainname;
   } else {
     this.username = loginname.substr(0, loginname.indexOf("@"));
     this.userid = loginname;
   }
-  //prefix to make server-local URLs into global URLs
-  this.globalprefix = window.location.protocol + "//" + window.location.hostname;
   this.baseurl = baseurl + this.username + "/";
   this.keys = {};
-  //so that we can get the public keys and private keys,
-  //look in keys, if theres no key, look in public_keys...
-  this.public_keys = {};
   this.filetree = null; //new Folder("/", this, this.baseurl);
-  this.salt_types = {"SHA-1": true, "SHA-256" : true};
+  this.salt_types = {"SHA-1": 0};
   this.namedpaths = {};
   this.parsed_secrets = false;
-  this.rng = new SecureRandom();
 };
 
-UserInfo.prototype.make_root_folder = function(baseurl, dont_fetch) {
-  this.filetree = new Folder("/", this, baseurl);
+UserInfo.prototype.make_root_folder = function(baseurl) {
+  this.filetree = new Folder("", this, baseurl);
   this.filetree.url = baseurl + "meta";
-  if (dont_fetch)
-    this.filetree.fetch_and_parse();
+  this.filetree.fetch_and_parse();
   this.namedpaths[this.filetree.namedpath] = this.filetree;
 };
-
-UserInfo.prototype.get_signing_key = function() {
-  if (this.signing_key)
-    return this.signing_key;
-  //todo: find out what keys we have, use newest longterm key
-  //or shortterm key
-}
 
 UserInfo.prototype.get_key = function(name, folder) {
   //makes a real key out of a lazy key, if necessary
@@ -629,7 +414,7 @@ UserInfo.prototype.get_key = function(name, folder) {
     this.filetree.subfolders.secrets = undefined;
     this.filetree.new_subfolder({name: "secrets", url: "secrets/meta"});
     //allow adding global keys from this directory
-    this.filetree.subfolders.secrets.defines_global_keys = true;
+    this.filetree.subfolders.secrets.allow_global_keys = true;
     //todo: correctly handle subfolders, doofus
     try {
       this.filetree.subfolders.secrets.fetch_and_parse();
@@ -750,7 +535,7 @@ function assemble(meta, folder, crypto_context) {
       meta.signature = fetch(signature_url);
       echo_append("done fetching signature " + signature_url);
       if (meta.signature_urltrans)
-        meta.signature = untransform_pair(meta.signature, meta.signature_urltrans, folder, "", crypto_context)[0];
+        meta.signature = untransform_pair(meta.signature, meta.signature_urltrans, "", crypto_context)[0];
     }
     catch (exception) {
       echo_append("error: " + exception);
@@ -887,15 +672,9 @@ function make_key(meta, folder, crypto_context) {
     key = new Key(false);
     key.key = RSAKey.new_key_from_openssl(meta.value);
     key.private = key.key.private;
-    key.public = !key.private;
     key.type = "RSA";
     key.hash = new jsSHA(key.key.to_openssl_public_key()).getHash("SHA-1", "BIN");
     key.mnemonic = names.get_names_from_digest(key.hash);
-    //in milliseconds from epoch. why not?
-    if (meta.validfrom)
-      key.validfrom = Date.parse(meta.validfrom);
-    if (meta.validto)
-      key.validto = Date.parse(meta.validto);
     key.encrypt = function(data) { //no iv, generates some salt on its own
       echo_append("encrypting with public key " + key.name);
       var m = this.key.pkcs1pad2(data,(this.key.n.bitLength()+7)>>3);
@@ -908,10 +687,10 @@ function make_key(meta, folder, crypto_context) {
     key.verify = function(data, signature) {
       return this.key.verify(data, signature); 
     }
+    key.sign = function(data, hash_type) {
+      return this.key.sign(data, hash_type);
+    }
     if (key.private)
-      key.sign = function(data, hash_type) {
-          return this.key.sign(data, hash_type);
-      }
       key.decrypt = function(data) { //no iv, generates some salt on its own
       echo_append("decrypting with private key " + key.name);
       var bi = parseBigInt(data, 256);
@@ -997,9 +776,22 @@ function make_key(meta, folder, crypto_context) {
   if ("local" == meta.scope)
     key.localscope = true;
 
-  key.crypto_context = crypto_context;
+  key.crypto_context= crypto_context;
 
   return key;
+};
+
+function add_key(key, folder) {
+  //todo: add keys of different users
+  if (key.localscope) {
+    if (folder.keys[key.name])
+      throw "add_key: key already exists in folder: " + key.name;
+    folder.keys[key.name] = key;
+  } else {
+    if (userinfo.keys[key.name])
+      throw "add_key: key already exists for user: " + key.name;
+    userinfo.keys[key.name] = key;
+  }
 };
 
 function remove_all_node_children(node) {
@@ -1057,7 +849,7 @@ function sign_content_or_folder(namedpath) {
 
   var src;  
   //todo: key other than 'master'
-  var signing_key = userinfo.get_signing_key();
+  var signing_key = userinfo.get_key("master");
   var upload_array = [];
   if (obj instanceof Content) {
     //Content _plaintext_ is signed
@@ -1118,15 +910,9 @@ function upload(lockfile_url, uploads) {
       "content", uploads[i].content]);
   }
   //todo: replace with "newest private key"
-  var plain_signature = userinfo.get_signing_key().sign(body, "SHA-256");
+  var plain_signature = userinfo.get_key("master").sign(body, "SHA-256");
   //Date.getTime() return microseconds sind epoch
-  var expected_content = "";
-  try {
-    expected_content = fetch(lockfile_url); 
-  } catch (e) {
-    echo_append("upload(): expected content not found. assuming empty string.");
-  }
-  
+  var expected_content = fetch(lockfile_url);
   var time = Math.floor(new Date().getTime() / 1000).toString(10);
   var iv = new jsSHA(time + expected_content).getHash("SHA-256", "BIN").substr(0, 16);
   var signature = Base64.encode(salsa20.encrypt(plain_signature, shared_secret, iv));
@@ -1142,7 +928,7 @@ function upload(lockfile_url, uploads) {
   req.open('POST', "upload.php", false);
   //req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
   req.send(header + body);
-  //echo_append("upload() message: " + header + body);
+  echo_append("upload() message: " + header + body);
   echo_append("upload() status: " + req.status + " - " + req.statusText);
   echo_append("upload() server said: " + req.responseText);
 }
@@ -1243,12 +1029,25 @@ function process_one_meta(meta, folder, crypto_context) {
           //todo: verify key signature
           //todo: correctly handle foreign keys
           var key = new LazyKey(meta, folder, key_crypto_context);
-          try {
-            folder.add_key(key);
-          } catch (e) {
-            echo_append(e);
-            continue;
+          var keys;
+          if ("local" == meta.scope) {
+            keys = folder.keys;
+            if (keys[meta.name])
+              throw "process_one_meta(): key already exists with name " + meta.name;
           }
+          else {
+            if (folder.allow_global_keys) {
+              keys = userinfo.keys;
+              if (keys[meta.name])
+                throw "process_one_meta(): key already exists with name " + meta.name;
+              folder.defines_global_keys[meta.name] = true;
+            }
+            else {
+              echo_append("process_one_meta(): ignoring global key '" + key.name + "' from folder which does not allow it");
+              continue;
+            }
+          }
+          keys[meta.name] = key;
         }
         break;
       case "meta":

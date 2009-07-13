@@ -35,20 +35,14 @@
         if (!key.private) 
           throw "signing requires a private key!"
 
-        var start = new Date();
         document.form0.signature.value = Base64.encode(key.sign(content, hash_type));
-        var end = new Date();
-        document.form0.timings.value += (end-start) + " ";
       }
 
       function do_verify() {
         var content = get_content();
         var signature = Base64.decode(document.form0.signature.value);
         var key = RSAKey.new_key_from_openssl(document.form0.key.value);
-        var start = new Date();
         var verify = key.verify(content, signature);
-        var end = new Date();
-        document.form0.timings.value += (end-start) + " ";
         if (verify[0])
           alert("Verification SUCCESS");
         else
@@ -57,6 +51,7 @@
         for(var i = 0; i < document.form0.hash_type.length; ++i)
           document.form0.hash_type[i].checked = (document.form0.hash_type[i].value == verify[2]);
       }
+
     </script>
   </head>
   <body>
@@ -123,7 +118,6 @@ oWGfXdNiTTWXE5ZBldrsv++Ih5aPzhVjbJ9WJlqkDSDylIqLZ5o7CcPCAzClZwbf
       <input type="radio" name="hash_type" value="SHA-512">SHA-512<br>
       <input type="button" value="sign" onClick="do_sign(); return false;">
       <input type="button" value="verify" onClick="do_verify(); return false;"><br>
-			<input type="text" name="timings"></input>
     </form>
     <p>
       In order to sign/verify using openssl, save your content in a file (here: called <tt>content</tt>).<br>
