@@ -1,23 +1,7 @@
-<html>
-	<body>
-		<form name=form1>
-			JSON:<br>
-			<textarea name=json cols=80 rows=24>{
- "foo": "bar",
- "n": 7.273e121,
- "7 to 10": [7, "eight", "9", 10]
-}</textarea><br>
-			<input type=button value=convert 
-				onClick="document.form1.nsondump.value = nson.stringify(jsonParse(document.form1.json.value), true);">
-			<input type=button value="to json" onClick="document.form1.json.value = JSON.stringify(nson.parseOne(document.form1.nsondump.value)[0]);"><br>
-			<br>
-			NSON:<br>
-			<textarea name=nsondump cols=80 rows=24></textarea>
-		</form>
-	</body>
-	<script src="../json/json_sans_eval.js" type="text/javascript"></script>
-	<script src="../json2/json2.js" type="text/javascript"></script>
-  <script type="text/javascript">
+//NSON stringifier / parser
+//GPL
+//written by Konstantin Welke (2009)
+
 		nson = {
 			parseOne: function(s) {
 				//parse number, followed by either %{["
@@ -168,5 +152,3 @@
 				}
 			}
 		};
-	</script>
-</html>
