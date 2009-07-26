@@ -51,10 +51,64 @@ function FileSystemFile = function(url) {
 };
 
 //constructor
-function ContentFile = function(privatePath, salt = "", user) {
+function Salt(value, encryptedBy)
+{
+  if (!this)
+    throw "Salt(): this is a constructor. Did you forget the 'new'?"
+
+  this._value = value;
+  this._encryptedBy = encryptedBy;
+  this._algo = "SHA-256";
+
+  this.value = function() { return this._value; };
+  this.encryptedBy = function() { return this._encryptedBy; };
+
+  this.algo = function() { return this._algo; };
+  this.setAlgo = function(algo) { this._algo = algo; };
+
+  return this;
+};
+
+PublicName_internal(namespace, salt, privatePath, user) {
+  var salt_value = (salt != null ? salt.value() : "");
+  //todo: should the default algo be settable by the folder properties?
+  var salt_algo = (salt != null ? salt.hash() : "SHA-256");
+  return new jsSHA(salt_value + user.id() + ":"
+    + namespace + ":/" + privatePath).hash();
+}
+
+function PublicName_Keys(salt, privatePath, user) {
+  return PublicName_internal("keys", salt, privatePath, user);
+};
+
+function PublicName_Revision(salt, privatePath, user) {
+  return PublicName_internal("revision", salt, privatePath, user);
+}
+
+function PublicName_Content(salt, privatePath, user) {
+  return PublicName_internal("content", salt, privatePath, user);
+}
+
+function PublicName_FolderProperties(salt, privatePath, user) {
+  return PublicName_internal("folder-properties", salt, privatePath, user);
+}
+
+function PublicName_FolderList(salt, privatePath, user) {
+  return PublicName_internal("folder-list", salt, privatePath, user);
+}
+
+//constructor
+function ContentFile(privatePath, salt = null, user) {
   this._privatePath = privatePath;
   this._salt = salt;
   this._user = user;
+  //parsed from the files
+  this._content = null;
+  this._keys = null;
+  this._plain = null;
+  this._revision = null;
+  this._signedBy = null;
+  this._verified = null;
 
   //one "keys" file, one revision file, one content file
   this._keysFile = new FileSystemFile(PublicName_Keys(salt, privatePath, user));
@@ -71,27 +125,39 @@ function ContentFile = function(privatePath, salt = "", user) {
   }
   this.write = function() {
     //todo: implement me!
+    this._revision++;
   }
 
   //manipulate content
   this.set = function(content) {
     //sets the content
-    //todo: this might just be a little more complicated than that?
-    this._contentFile.set(content);
+    this._content = content;
+    this._dirtyContent = true;
   }
   this.append = function(content) {
     //appends the content
-    //todo: might be more complicated?
-    this._contentFile.append(content);
+    this._content += content;
+    if (!this_dirtyContent)
+      this._dirtyContentAppended += content;
   }
   this.get = function() {
     //returns the content
-    //todo: this might just be a little more complicated than that?
-    return this._contentFile.get();
+    return this._content;
   }
 
-  this.addKey = function() {
+  this.addKey = function(key) {
     //adds the key to the list of keys that can decrypt the content
-    //todo: implement me
+    this._dirtyKeysAppended.push(key);
   }
+  this.revision = function() {
+    return this._revision;
+  }
+  this.setNotDirty = function() {
+    //assumes revision number is incremented somewhere else
+   this.dirtyContent = false;
+   this.dirtyContentAppended = "";
+   this.dirtyKeysAppended = [];
+  }
+
+  return this;
 };
