@@ -126,35 +126,68 @@ function ContentFile(privatePath, salt = null, user) {
   this._signedBy = null;
   this._verified = null;
 
-  //one "keys" file, one revision file, one content file
-  this._keysFile = new FileSystemFile(PublicName_Keys(salt, privatePath, user));
-  this._revisionFile = new FileSystemFile(PublicName_Revision(salt, privatePath, user));
   this._contentFile = new FileSystemFile(PublicName_Content(salt, privatePath, user));
-  this._files = [this._keysFile, this._revisionFile, this._contentFile];
+  this._files = [this._contentFile]
+  //this._files = [this._keysFile, this._revisionFile, this._contentFile];
   
   this.read = function() {
-    //todo: is there map()?
-    for(var i = 0; i < this._files.length; ++i)
+    //  - fetch content file
+    //  - parse one NSON object
+    //  - see whats missing from content file
+    //  - fetch & parse missing files
+    this._contentFile.read();
+    //for(var i = 0; i < this._files.length; ++i)
       //todo: performance: parallel reads?
-      this._files[i].read();
+      //this._files[i].read();
 
-    var parsed = nson.parseOne(this._keysFile);
+    var parsed = nson.parseOne(this._contentFile.get());
     if (!parsedObj || !parsedObj[0])
       throw privatePath + ": no nson object in keys file";
     var parsedObj = parsed[0];
+    //content will probably need to be untrans()'d (unless parsed.plain)
+    this._content = this._contentFile.get().substr(parsed[1])
     this._plain = parsed.plain;
     if ("String" == typeof(parsedObj))
-      throw "todo: implement me: decrypt obj with " + salt.encryptedBy();
+      //todo: implement decrypt()
+      parsedObj = nson.parseOne(untrans(this.parsedObj, salt.trans()))[0];
     else if ("Object" == typeof(parsedObj) && parsedObj.trans) {
-        throw "todo: implement me: decrypt obj with " + salt.encryptedBy();
+      parsedObj = nson.parseOne(untrans(this.parsedObj.value, parsedObj.trans()))[0];
     } else
       throw privatePath + ": first nson type is neither string nor object";
 
-    //todo: implement me: continue parsing of object
-    //todo: implement me: parse keys
-    //todo: implement me: parse revision/signature
-    //todo: implement me: decrypt content if necessary
+   if ("Object" != typeof(parsedObj))
+     throw "ContentFile.read(): first parsed NSON type is not Object, even after transformation"
+
+   //todo: parallel fetching of missing files
+   if (!parsedObj.revision || !parsedObj.signature) {
+     this._revisionFile = new FileSystemFile(PublicName_Revision(salt, privatePath, user));
+     this._files.append(this._revisionFile);
+     this._revisionFile.read();
+     var revisionObj = nson.parse(this._revisionFile.get())[0];
+     this.signature = revisionObj.signature;
+     this.signedby = revisionObj.signedby;
+     this.revision = revisionObj.revision;
+   }
+
+   if (!parsedObj.keys && !this._plain) {
+     this._keysFile = new FileSystemFile(PublicName_Keys(salt, privatePath, user));
+     this._files.append(this._keysFile);
+     this._keysFile.read();
+     var keysObj = nson.parse(this._keysFile.get())[0];
+     if (typeof(keysObj) != "Array")
+       //enforce "implicit array" :)
+       keysObj = [keysObj];
+     this.keys = keysObj;
+   }
+
+    //todo: implement me:
+    //if "not plaintext":
+    //  -look in keys array if we can actually decrypt a key
+    //  -decrypt content if necessary
+
+    //verify signature
   }
+
   this.write = function() {
     //todo: implement me!
     this._revision++;
