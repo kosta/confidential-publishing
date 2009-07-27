@@ -2,10 +2,15 @@
 //written by Konstantin Welke, 2009
 //licensed under the GPLv2
 
+function ctorEx(name) {
+  return "function " + name + "() is a constructor. Did you forget 'new'?";
+};
+
 //constructor
 function FileSystemFile = function(url) {
+  //todo: replace with function.name or something
   if (!this)
-    throw "FileSystemFile() is a constructor. Did you forget 'new'?";
+    throw ctorEx("ContentFile");
 
   this.url = function() { return this._url; };
   this.setUrl = function(url) { this._url = url; };
@@ -53,8 +58,9 @@ function FileSystemFile = function(url) {
 //constructor
 function Salt(value, encryptedBy)
 {
+  //todo: replace with function.name or something
   if (!this)
-    throw "Salt(): this is a constructor. Did you forget the 'new'?"
+    throw ctorEx("ContentFile");
 
   this._value = value;
   this._encryptedBy = encryptedBy;
@@ -97,8 +103,18 @@ function PublicName_FolderList(salt, privatePath, user) {
   return PublicName_internal("folder-list", salt, privatePath, user);
 }
 
+function User(id) {
+  //todo: replace with function.name or something
+  if (!this)
+    throw ctorEx("User");
+}; 
+
 //constructor
 function ContentFile(privatePath, salt = null, user) {
+  //todo: replace with function.name or something
+  if (!this)
+    throw ctorEx("ContentFile");
+
   this._privatePath = privatePath;
   this._salt = salt;
   this._user = user;
@@ -121,7 +137,23 @@ function ContentFile(privatePath, salt = null, user) {
     for(var i = 0; i < this._files.length; ++i)
       //todo: performance: parallel reads?
       this._files[i].read();
-    //todo: parse data: implement me!
+
+    var parsed = nson.parseOne(this._keysFile);
+    if (!parsedObj || !parsedObj[0])
+      throw privatePath + ": no nson object in keys file";
+    var parsedObj = parsed[0];
+    this._plain = parsed.plain;
+    if ("String" == typeof(parsedObj))
+      throw "todo: implement me: decrypt obj with " + salt.encryptedBy();
+    else if ("Object" == typeof(parsedObj) && parsedObj.trans) {
+        throw "todo: implement me: decrypt obj with " + salt.encryptedBy();
+    } else
+      throw privatePath + ": first nson type is neither string nor object";
+
+    //todo: implement me: continue parsing of object
+    //todo: implement me: parse keys
+    //todo: implement me: parse revision/signature
+    //todo: implement me: decrypt content if necessary
   }
   this.write = function() {
     //todo: implement me!
