@@ -2,6 +2,8 @@
 //written by Konstantin Welke, 2009
 //licensed under the GPLv2
 
+if (confidentialPublishing)
+  throw "confidentialPublishing already defined";
 var confidentialPublishing = function() {
   function makeFileSystemFile(givenUrl) {
     var url = givenUrl;
@@ -87,7 +89,7 @@ var confidentialPublishing = function() {
     var salt = aSalt;
     var user = aUser;
     //parsed from the files
-    var content, keys, plain, revision, signature, signedBy, verified,
+    var content, keys, plain, revision = -1, signature, signedBy, verified,
       dirtyContentSet, dirtyContentAppended, dirtyKeysAppended;
     var publicNames = makePublicNames(salt, privatePath, user);
     var contentFile = makeFileSystemFile(publicNames.content);
