@@ -6,4 +6,8 @@
     Something nice might come this way...
   </body>
   <script src="lib.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    var salt = make_salt("ssss", ["key1", "key2"])
+    alert(salt.algo())
+  </script>
 </html>

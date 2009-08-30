@@ -57,24 +57,16 @@ function FileSystemFile(url) {
   return this;
 };
 
-//constructor
-function Salt(value, encryptedBy)
-{
-  //todo: replace with function.name or something
-  if (!this)
-    throw ctorEx("ContentFile");
+var make_salt = function(/*string*/ value, /*array*/ encryptedBy, /*string*/ algo) {
+  var value = value || "";
+  var encryptedBy = encryptedBy || [];
+  var algo = algo || "SHA-256";
 
-  this._value = value;
-  this._encryptedBy = encryptedBy;
-  this._algo = "SHA-256";
-
-  this.value = function() { return this._value; };
-  this.encryptedBy = function() { return this._encryptedBy; };
-
-  this.algo = function() { return this._algo; };
-  this.setAlgo = function(algo) { this._algo = algo; };
-
-  return this;
+  return {
+    value: function() { return value; },
+    encryptedBy: function() { return encryptedBy; },
+    algo: function() { return algo; }
+  }
 };
 
 function PublicName_internal(namespace, salt, privatePath, user) {
