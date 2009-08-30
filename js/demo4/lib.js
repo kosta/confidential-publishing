@@ -57,7 +57,7 @@ function FileSystemFile(url) {
   return this;
 };
 
-var make_salt = function(/*string*/ value, /*array*/ encryptedBy, /*string*/ algo) {
+var makeSalt = function(/*string*/ value, /*array*/ encryptedBy, /*string*/ algo) {
   var value = value || "";
   var encryptedBy = encryptedBy || [];
   var algo = algo || "SHA-256";
@@ -69,38 +69,24 @@ var make_salt = function(/*string*/ value, /*array*/ encryptedBy, /*string*/ alg
   }
 };
 
-function PublicName_internal(namespace, salt, privatePath, user) {
-  var salt_value = (salt != null ? salt.value() : "");
-  //todo: should the default algo be settable by the folder properties?
-  var salt_algo = (salt != null ? salt.hash() : "SHA-256");
-  return new jsSHA(salt_value + user.id() + ":"
-    + namespace + ":/" + privatePath).hash();
-}
-
-function PublicName_Keys(salt, privatePath, user) {
-  return PublicName_internal("keys", salt, privatePath, user);
+var makeUser = function(id) {
+  return {
+    id: function() { return id; }
+  }
 };
 
-function PublicName_Revision(salt, privatePath, user) {
-  return PublicName_internal("revision", salt, privatePath, user);
-}
-
-function PublicName_Content(salt, privatePath, user) {
-  return PublicName_internal("content", salt, privatePath, user);
-}
-
-function PublicName_FolderProperties(salt, privatePath, user) {
-  return PublicName_internal("folder-properties", salt, privatePath, user);
-}
-
-function PublicName_FolderList(salt, privatePath, user) {
-  return PublicName_internal("folder-list", salt, privatePath, user);
-}
-
-function User(id) {
-  //todo: replace with function.name or something
-  if (!this)
-    throw ctorEx("User");
+var makePublicName = function(salt, privatePath, user) {
+  function publicName(namespace) {
+    //todo: should the default algo be settable by the folder properties?
+    return new jsSHA(salt.value() + user.id() + ":" + namespace + ":/" + privatePath).getHash(salt.algo(), "HEX");
+  }  
+  return { //if this is too slow, maybe making them functions could be better
+    keys: publicName("keys"),
+    revision: publicName("revision"),
+    content: publicName("content"),
+    "folder-properties": publicName("folder-properties"),
+    "folder-list": publicName("folder-list")
+  }
 }; 
 
 //constructor

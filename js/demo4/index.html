@@ -3,11 +3,16 @@
     <title>confidential publishing - demo4</title>
   </head>
   <body>
-    Something nice might come this way...
+    <p>Something nice might come this way...</p>
   </body>
+  <script src="../jssha/sha.js" type="text/javascript"></script>
   <script src="lib.js" type="text/javascript"></script>
   <script type="text/javascript">
-    var salt = make_salt("ssss", ["key1", "key2"])
-    alert(salt.algo())
+    var salt = makeSalt("ssss", ["key1", "key2"]);
+    var user = makeUser("alice@lastpageofthe.net");
+    var filenames = makePublicName(salt, "/passphrases", user);
+    for (i in filenames) {
+      document.write(i + ": " + filenames[i] + "<br>\n");
+    }
   </script>
 </html>
