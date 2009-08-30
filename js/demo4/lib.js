@@ -7,7 +7,7 @@ function ctorEx(name) {
 };
 
 //constructor
-function FileSystemFile = function(url) {
+function FileSystemFile(url) {
   //todo: replace with function.name or something
   if (!this)
     throw ctorEx("ContentFile");
@@ -36,19 +36,21 @@ function FileSystemFile = function(url) {
     if (!this._dirtySet) 
       this._dirtyAppend += content;
   };
-  this.getWriteObject() {
+  this.getWriteObject = function() {
     //todo: writeme
     if (!this._dirtyAppend && !this._dirtySet)
-	return null;
+	return; //returns undefined
     var obj = {type: "server-message:" + 
-        (this._dirtySet ? "update-file" : "append-file", content: this.get(),
-      //todo: assumes "url" object - if that exists?
+        (this._dirtySet ? "update-file" : "append-file"), 
+      content: this.get(),
+      //todo: assumes "url" object - does that exist?
       name: this.url.getPath(),
       content: (this._dirtySet ? this._dirtyContent : this._dirtyAppend)
-      });
+      };
     this.setNotDirty();
+    return obj;
   };
-  this.read() {
+  this.read = function() {
     this.content = fetch_url(url);
   };
 
@@ -75,7 +77,7 @@ function Salt(value, encryptedBy)
   return this;
 };
 
-PublicName_internal(namespace, salt, privatePath, user) {
+function PublicName_internal(namespace, salt, privatePath, user) {
   var salt_value = (salt != null ? salt.value() : "");
   //todo: should the default algo be settable by the folder properties?
   var salt_algo = (salt != null ? salt.hash() : "SHA-256");
@@ -110,7 +112,7 @@ function User(id) {
 }; 
 
 //constructor
-function ContentFile(privatePath, salt = null, user) {
+function ContentFile(privatePath, salt, user) {
   //todo: replace with function.name or something
   if (!this)
     throw ctorEx("ContentFile");
