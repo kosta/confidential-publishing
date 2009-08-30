@@ -8,9 +8,9 @@
   <script src="../jssha/sha.js" type="text/javascript"></script>
   <script src="lib.js" type="text/javascript"></script>
   <script type="text/javascript">
-    var salt = makeSalt("ssss", ["key1", "key2"]);
-    var user = makeUser("alice@lastpageofthe.net");
-    var filenames = makePublicName(salt, "/passphrases", user);
+    var salt = confidentialPublishing.makeSalt("ssss", ["key1", "key2"]);
+    var user = confidentialPublishing.makeUser("alice@lastpageofthe.net");
+    var filenames = confidentialPublishing.makePublicNames(salt, "/passphrases", user);
     for (i in filenames) {
       document.write(i + ": " + filenames[i] + "<br>\n");
     }
