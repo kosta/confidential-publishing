@@ -3,58 +3,56 @@
 //licensed under the GPLv2
 
 function ctorEx(name) {
+  //will be obsolete... soon!
   return "function " + name + "() is a constructor. Did you forget 'new'?";
 };
 
 //constructor
-function FileSystemFile(url) {
-  //todo: replace with function.name or something
-  if (!this)
-    throw ctorEx("ContentFile");
+function makeFileSystemFile(givenUrl) {
+  var url = givenUrl;
+  var dirtySet, dirtyAppend;
+  var content;
 
-  this.url = function() { return this._url; };
-  this.setUrl = function(url) { this._url = url; };
-  this.setUrl(url);
+  function setNotDirty() {
+      //was the set() called on the content since last getWriteObject()?
+      this._dirtySet = false; 
+      //was append() called on the content since last getWriteObject()?
+      //will not be set if _dirtySet is true
+      this._dirtyAppend = "";
+    };
+  setNotDirty();
 
-  this.setNotDirty = function() {
-    //was the set() called on the content since last getWriteObject()?
-    this._dirtySet = false; 
-    //was append() called on the content since last getWriteObject()?
-    //will not be set if _dirtySet is true
-    this._dirtyAppend = "";
-  };
-  this.setNotDirty();
-
-  this.get = function() { return this._content; };
-  this.set = function(content) { 
-    this._content = content; 
-    this._dirtySet = true; 
-    this._dirtyAppend = "";
-  };
-  this.append = function(content) { 
-    this._content += content; 
-    if (!this._dirtySet) 
-      this._dirtyAppend += content;
-  };
-  this.getWriteObject = function() {
-    //todo: writeme
-    if (!this._dirtyAppend && !this._dirtySet)
-	return; //returns undefined
-    var obj = {type: "server-message:" + 
-        (this._dirtySet ? "update-file" : "append-file"), 
-      content: this.get(),
-      //todo: assumes "url" object - does that exist?
-      name: this.url.getPath(),
-      content: (this._dirtySet ? this._dirtyContent : this._dirtyAppend)
-      };
-    this.setNotDirty();
-    return obj;
-  };
-  this.read = function() {
-    this.content = fetch_url(url);
-  };
-
-  return this;
+  return {
+    url: function() { return url; },
+    //this.setUrl = function(url) { this._url = url; };	
+    get: function() { return content; },
+    set: this.set = function(newContent) { 
+      content = newContent; 
+      dirtySet = true; 
+      dirtyAppend = "";
+    },
+    append: function(newContent) { 
+      content += newContent; 
+      if (!dirtySet) 
+	dirtyAppend += content;
+    },
+    getWriteObject: function() {
+      //todo: writeme
+      if (!this._dirtyAppend && !this._dirtySet)
+	  return; //returns undefined
+      var obj = {type: "server-message:" + 
+	  (dirtySet ? "update-file" : "append-file"), 
+	content: (dirtySet ? this.get() : dirtySet),
+	//todo: assumes "url" object - does that exist?
+	name: this.url.getPath()
+	};
+      this.setNotDirty();
+      return obj;
+    },
+    read: function() {
+      content = fetch_url(url);
+    }
+  } //returned object
 };
 
 var makeSalt = function(/*string*/ value, /*array*/ encryptedBy, /*string*/ algo) {
